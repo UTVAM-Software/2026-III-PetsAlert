@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+
+{% block title %}Mi Perfil - Pets Alert{% endblock %}
+
+{% block extra_head %}
+<style>
+    main {
+        padding: 0;
+        max-width: none;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-page">
+    <header class="profile-appbar">
+        <h1>Mi Perfil</h1>
+    </header>
+
+    <div id="profile-loading" class="profile-loading">
+        <div class="profile-spinner"></div>
+    </div>
+
+    <div id="profile-content" class="profile-content is-hidden">
+
+
+            <div class="profile-avatar">
+                <span class="material-symbols-outlined">person</span>
+            </div>
+            <h2 id="profile-name">Usuario Nuevo</h2>
+            <p id="profile-email"></p>
+
+            <div class="profile-divider"></div>
+
+            <button type="button" id="contact-row" class="profile-row">
+                <span class="material-symbols-outlined profile-row-icon">phone_android</span>
+                <span class="profile-row-content">
+                    <strong>Contacto Público</strong>
+                    <span id="profile-phone">Sin número</span>
+                </span>
+                <span class="material-symbols-outlined profile-row-action">edit</span>
+            </button>
+
+            <a href="{% url 'privacy_screen' %}" class="profile-row profile-row-link">
+                <span class="material-symbols-outlined profile-row-icon">privacy_tip</span>
+                <span class="profile-row-content">
+                    <strong>Privacidad de la cuenta</strong>
+                </span>
+                <span class="material-symbols-outlined profile-row-action">chevron_right</span>
+            </a>
+
+            <div class="profile-divider"></div>
+
+            <button type="button" id="logout-button" class="profile-logout">
+                <span class="material-symbols-outlined">logout</span>
+                <span>Cerrar Sesión</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="profile-modal-backdrop" id="profile-modal" hidden>
+        <div class="profile-modal" role="dialog" aria-modal="true" aria-labelledby="edit-profile-title">
+            <h2 id="edit-profile-title">Editar Perfil</h2>
+
+            <label for="edit-name">Nombre completo</label>
+            <input type="text" id="edit-name">
+
+            <label for="edit-phone">Teléfono de contacto</label>
+            <input type="tel" id="edit-phone">
+
+            <div class="profile-modal-actions">
+                <button type="button" id="cancel-edit" class="profile-modal-cancel">Cancelar</button>
+                <button type="button" id="save-edit" class="profile-modal-save">Guardar</button>
+            </div>
+        </div>
+    </div>
+    {% endblock %}
+
+    {% block scripts %}
+    <script type="module">
+        import {
+            doc,
+            getDoc,
+            setDoc,
+            serverTimestamp
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        import {
+            onAuthStateChanged,
+            signOut
+        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+        const auth = window.firebaseAuth;
+        const db = window.firebaseDb;
+
+        const loading = document.getElementById('profile-loading');
+        const content = document.getElementById('profile-content');
+        const nameElement = document.getElementById('profile-name');
+        const emailElement = document.getElementById('profile-email');
+        const phoneElement = document.getElementById('profile-phone');
+        const contactRow = document.getElementById('contact-row');
+        const logoutButton = document.getElementById('logout-button');
+
+        const modal = document.getElementById('profile-modal');
+        const editName = document.getElementById('edit-name');
+        const editPhone = document.getElementById('edit-phone');
+        const cancelEdit = document.getElementById('cancel-edit');
+        const saveEdit = document.getElementById('save-edit');
+
+        let currentUser = null;
+        let currentName = 'Usuario Nuevo';
+        let currentPhone = 'Sin número';
+
+        function abrirModal() {
+            editName.value = currentName === 'Usuario Nuevo' ? '' : currentName;
+            editPhone.value = currentPhone === 'Sin número' ? '' : currentPhone;
+            modal.hidden = false;
+            editName.focus();
+        }
+
+        function cerrarModal() {
+            modal.hidden = true;
+        }
+
+        async function cargarPerfil(user) {
+            currentUser = user;
+            const snapshot = await getDoc(doc(db, 'usuarios', user.uid));
+            const userData = snapshot.exists() ? (snapshot.data() || {}) : {};
+
+            currentName = userData.nombre || 'Usuario Nuevo';
+            currentPhone = userData.telefono || 'Sin número';
+
+            nameElement.textContent = currentName;
+            emailElement.textContent = user.email || '';
+            phoneElement.textContent = currentPhone;
+
+            loading.classList.add('is-hidden');
+            content.classList.remove('is-hidden');
+        }
+
+        contactRow.addEventListener('click', abrirModal);
+        cancelEdit.addEventListener('click', cerrarModal);
+
+        modal.addEventListener('click', event => {
+            if (event.target === modal) cerrarModal();
+        });
+
+        saveEdit.addEventListener('click', async () => {
+            if (!currentUser) return;
+
+            const nombre = editName.value.trim();
+            const telefono = editPhone.value.trim();
+
+            if (!nombre) return;
+
+            saveEdit.disabled = true;
+
+            try {
+                await setDoc(
+                    doc(db, 'usuarios', currentUser.uid),
+                    {
+                        nombre,
+                        telefono,
+                        fechaActualizacion: serverTimestamp()
+                    },
+                    { merge: true }
+                );
+
+                currentName = nombre;
+                currentPhone = telefono || 'Sin número';
+                nameElement.textContent = currentName;
+                phoneElement.textContent = currentPhone;
+                cerrarModal();
+            } catch (error) {
+                console.error(error);
+            } finally {
+                saveEdit.disabled = false;
+            }
+        });
+
+        logoutButton.addEventListener('click', async () => {
+            await signOut(auth);
+            window.location.href = "{% url 'login' %}";
+        });
+
+        onAuthStateChanged(auth, user => {
+            if (!user) {
+                window.location.href = "{% url 'login' %}";
+                return;
+            }
+
+            cargarPerfil(user).catch(error => {
+                console.error(error);
+
+                loading.innerHTML = `
+        <p>Error al cargar el perfil.</p>`;
+            });
+        });
+    </script>
+    {% endblock %}
