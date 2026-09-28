@@ -1,0 +1,484 @@
+{% extends 'base.html' %}
+
+{% block title %}Pets Alert{% endblock %}
+
+{% block extra_head %}
+<style>
+    .navbar {
+        display: none;
+    }
+
+    main {
+        padding: 0;
+        max-width: none;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block bottom_nav %}{% endblock %}
+
+{% block content %}
+<div class="add-report-page">
+    <header class="add-report-appbar">
+        <button type="button" class="add-report-back-button" id="back-button" aria-label="Regresar">
+            <span>‹</span>
+        </button>
+        <h1 id="screen-title">Crear Reporte</h1>
+        <div class="add-report-appbar-spacer"></div>
+    </header>
+
+    <div class="add-report-container">
+        <form id="report-form" novalidate>
+            <h2>Información de la mascota</h2>
+
+            <div class="report-type-row">
+                <button type="button" class="report-type-button lost" id="lost-button">
+                    SE BUSCA
+                </button>
+
+                <button type="button" class="report-type-button found" id="found-button">
+                    ENCONTRADO
+                </button>
+            </div>
+
+            <input
+                type="file"
+                id="image-input"
+                accept="image/*"
+                hidden
+            >
+
+            <button type="button" id="image-picker" class="image-picker">
+                <div id="image-preview" class="image-preview">
+                    <span class="image-placeholder-icon">📷</span>
+                    <span class="image-placeholder-text">Toca para subir foto</span>
+                </div>
+            </button>
+
+            <div class="form-group">
+                <label for="especie">Especie</label>
+                <select id="especie" required>
+                    <option value="Perro">Perro</option>
+                    <option value="Gato">Gato</option>
+                    <option value="Ave">Ave</option>
+                    <option value="Conejo">Conejo</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="localidad">Ubicación / Localidad</label>
+                <div class="input-with-icon">
+                    <span class="material-symbols-outlined">location_on</span>
+                    <input
+                        type="text"
+                        id="localidad"
+                        required
+                    >
+                </div>
+                <div class="field-error" id="localidad-error"></div>
+            </div>
+
+            <div class="form-group">
+                <label for="descripcion">Descripción y señas particulares</label>
+                <textarea
+                    id="descripcion"
+                    rows="4"
+                    required
+                ></textarea>
+                <div class="field-error" id="descripcion-error"></div>
+            </div>
+
+            <div class="form-error" id="form-error"></div>
+
+            <button type="submit" id="submit-button" class="submit-button">
+                Publicar Reporte
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import {
+        doc,
+        getDoc,
+        addDoc,
+        updateDoc,
+        collection,
+        serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    import {
+        onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    const db = window.firebaseDb;
+    const auth = window.firebaseAuth;
+
+    const reporteId = "{{ reporte_id|default:'' }}";
+    const isEditing = reporteId !== "";
+
+    const form = document.getElementById('report-form');
+    const screenTitle = document.getElementById('screen-title');
+    const lostButton = document.getElementById('lost-button');
+    const foundButton = document.getElementById('found-button');
+    const imageInput = document.getElementById('image-input');
+    const imagePicker = document.getElementById('image-picker');
+    const imagePreview = document.getElementById('image-preview');
+    const especieInput = document.getElementById('especie');
+    const localidadInput = document.getElementById('localidad');
+    const descripcionInput = document.getElementById('descripcion');
+    const submitButton = document.getElementById('submit-button');
+    const formError = document.getElementById('form-error');
+    const localidadError = document.getElementById('localidad-error');
+    const descripcionError = document.getElementById('descripcion-error');
+    const backButton = document.getElementById('back-button');
+
+    let tipoReporte = 'se busca';
+    let imagenBase64Existente = null;
+    let imagenBase64Seleccionada = null;
+    let imagenPreviewUrl = null;
+    let usuarioActual = null;
+
+    function escaparHtml(texto) {
+        return String(texto)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    function esperarUsuario() {
+        return new Promise(resolve => {
+            const unsubscribe = onAuthStateChanged(auth, user => {
+                unsubscribe();
+                usuarioActual = user;
+                resolve(user);
+            });
+        });
+    }
+
+    function actualizarTipoReporte() {
+        lostButton.classList.toggle('selected', tipoReporte === 'se busca');
+        foundButton.classList.toggle('selected', tipoReporte === 'encontrado');
+    }
+
+    function mostrarErrorCampo(elemento, mensaje) {
+        elemento.textContent = mensaje;
+    }
+
+    function limpiarErrores() {
+        formError.textContent = '';
+        localidadError.textContent = '';
+        descripcionError.textContent = '';
+    }
+
+    function mostrarErrorGeneral(mensaje) {
+        formError.textContent = mensaje;
+    }
+
+    function obtenerDataUrl(base64) {
+        if (!base64) {
+            return null;
+        }
+
+        if (base64.startsWith('data:')) {
+            return base64;
+        }
+
+        return `data:image/jpeg;base64,${base64}`;
+    }
+
+    function mostrarPreviewBase64(base64) {
+        const dataUrl = obtenerDataUrl(base64);
+
+        if (!dataUrl) {
+            imagePreview.innerHTML = `
+                <span class="image-placeholder-icon">📷</span>
+                <span class="image-placeholder-text">Toca para subir foto</span>
+            `;
+            return;
+        }
+
+        imagePreview.innerHTML = `
+            <img src="${dataUrl}" alt="Vista previa de mascota">
+        `;
+
+        const image = imagePreview.querySelector('img');
+
+        image.addEventListener('error', () => {
+            imagePreview.innerHTML = `
+                <span class="image-placeholder-icon">📷</span>
+                <span class="image-placeholder-text">Toca para subir foto</span>
+            `;
+        });
+    }
+
+    function comprimirImagen(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+
+            reader.onload = event => {
+                const img = new Image();
+
+                img.onload = () => {
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > 600) {
+                        height = Math.round(height * (600 / width));
+                        width = 600;
+                    }
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const context = canvas.getContext('2d');
+
+                    if (!context) {
+                        reject(new Error('No se pudo procesar la imagen.'));
+                        return;
+                    }
+
+                    context.drawImage(img, 0, 0, width, height);
+
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
+                    const base64 = dataUrl.split(',')[1];
+
+                    resolve({
+                        base64,
+                        dataUrl
+                    });
+                };
+
+                img.onerror = () => {
+                    reject(new Error('No se pudo leer la imagen.'));
+                };
+
+                img.src = event.target.result;
+            };
+
+            reader.onerror = () => {
+                reject(new Error('No se pudo leer el archivo.'));
+            };
+
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function cargarReporteExistente() {
+        try {
+            const reporteRef = doc(db, 'publicaciones', reporteId);
+            const reporteSnap = await getDoc(reporteRef);
+
+            if (!reporteSnap.exists()) {
+                mostrarErrorGeneral('El reporte no existe.');
+                submitButton.disabled = true;
+                return;
+            }
+
+            const data = reporteSnap.data();
+            const mascota = data.mascota || {};
+            const ubicacion = data.ubicacion || {};
+
+            tipoReporte = data.tipoReporte || 'se busca';
+            especieInput.value = mascota.especie || 'Perro';
+            localidadInput.value = ubicacion.localidad || '';
+            descripcionInput.value = mascota.descripcion || '';
+            imagenBase64Existente = mascota.fotoBase64 || null;
+
+            actualizarTipoReporte();
+
+            if (imagenBase64Existente) {
+                mostrarPreviewBase64(imagenBase64Existente);
+            }
+        } catch (error) {
+            console.error(error);
+            mostrarErrorGeneral('Error al cargar el reporte.');
+            submitButton.disabled = true;
+        }
+    }
+
+    function actualizarInterfazEdicion() {
+        if (isEditing) {
+            screenTitle.textContent = 'Editar Reporte';
+            submitButton.textContent = 'Guardar Cambios';
+        } else {
+            screenTitle.textContent = 'Crear Reporte';
+            submitButton.textContent = 'Publicar Reporte';
+        }
+    }
+
+    async function procesarImagen() {
+        const file = imageInput.files?.[0];
+
+        if (!file) {
+            return;
+        }
+
+        try {
+            const resultado = await comprimirImagen(file);
+
+            imagenBase64Seleccionada = resultado.base64;
+            imagenBase64Existente = null;
+            imagenPreviewUrl = resultado.dataUrl;
+
+            imagePreview.innerHTML = `
+                <img src="${resultado.dataUrl}" alt="Vista previa de mascota">
+            `;
+        } catch (error) {
+            console.error(error);
+            mostrarErrorGeneral('No se pudo procesar la imagen.');
+        }
+    }
+
+    function validarFormulario() {
+        limpiarErrores();
+
+        let valido = true;
+
+        if (!localidadInput.value.trim()) {
+            mostrarErrorCampo(localidadError, 'Requerido');
+            valido = false;
+        }
+
+        if (!descripcionInput.value.trim()) {
+            mostrarErrorCampo(descripcionError, 'Requerido');
+            valido = false;
+        }
+
+        if (!imagenBase64Seleccionada && !imagenBase64Existente) {
+            mostrarErrorGeneral('Por favor, selecciona una foto de la mascota.');
+            valido = false;
+        }
+
+        return valido;
+    }
+
+    function bloquearFormulario(bloquear) {
+        submitButton.disabled = bloquear;
+        lostButton.disabled = bloquear;
+        foundButton.disabled = bloquear;
+        imagePicker.disabled = bloquear;
+        especieInput.disabled = bloquear;
+        localidadInput.disabled = bloquear;
+        descripcionInput.disabled = bloquear;
+
+        if (bloquear) {
+            submitButton.innerHTML = '<span class="submit-spinner"></span>';
+        } else {
+            submitButton.textContent = isEditing
+                ? 'Guardar Cambios'
+                : 'Publicar Reporte';
+        }
+    }
+
+    async function enviarReporteSeguro() {
+        if (!validarFormulario()) {
+            return;
+        }
+
+        const currentUser = usuarioActual || auth.currentUser;
+
+        if (!currentUser) {
+            mostrarErrorGeneral('Debes iniciar sesión para realizar esta acción.');
+            return;
+        }
+
+        bloquearFormulario(true);
+
+        try {
+            const base64Image = imagenBase64Seleccionada || imagenBase64Existente;
+
+            const reporteData = {
+                tipoReporte,
+                mascota: {
+                    especie: especieInput.value,
+                    descripcion: descripcionInput.value.trim(),
+                    fotoBase64: base64Image
+                },
+                ubicacion: {
+                    localidad: localidadInput.value.trim()
+                },
+                estado: 'activo'
+            };
+
+            if (isEditing) {
+                reporteData.fechaActualizacion = serverTimestamp();
+
+                await updateDoc(
+                    doc(db, 'publicaciones', reporteId),
+                    reporteData
+                );
+            } else {
+                reporteData.userId = currentUser.uid;
+                reporteData.fechaPublicacion = serverTimestamp();
+
+                await addDoc(
+                    collection(db, 'publicaciones'),
+                    reporteData
+                );
+            }
+
+            const mensaje = isEditing
+                ? '✅ Reporte actualizado'
+                : '✅ Reporte publicado con éxito';
+
+            sessionStorage.setItem('petsAlertMessage', mensaje);
+
+            window.location.href = "{% url 'feed_screen' %}";
+        } catch (error) {
+            console.error(error);
+            mostrarErrorGeneral('Error de seguridad o imagen muy pesada.');
+            bloquearFormulario(false);
+        }
+    }
+
+    lostButton.addEventListener('click', () => {
+        tipoReporte = 'se busca';
+        actualizarTipoReporte();
+    });
+
+    foundButton.addEventListener('click', () => {
+        tipoReporte = 'encontrado';
+        actualizarTipoReporte();
+    });
+
+    imagePicker.addEventListener('click', () => {
+        imageInput.click();
+    });
+
+    imageInput.addEventListener('change', procesarImagen);
+
+    backButton.addEventListener('click', () => {
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            window.location.href = "{% url 'feed_screen' %}";
+        }
+    });
+
+    form.addEventListener('submit', event => {
+        event.preventDefault();
+        enviarReporteSeguro();
+    });
+
+    actualizarTipoReporte();
+    actualizarInterfazEdicion();
+
+    async function inicializar() {
+        await esperarUsuario();
+
+        if (isEditing) {
+            await cargarReporteExistente();
+        }
+    }
+
+    inicializar();
+</script>
+{% endblock %}

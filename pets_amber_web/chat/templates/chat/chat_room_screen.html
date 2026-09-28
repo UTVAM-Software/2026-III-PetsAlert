@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+
+{% block title %}Chat - Pets Alert{% endblock %}
+
+{% block bottom_nav %}{% endblock %}
+
+{% block extra_head %}
+<style>
+    main {
+        padding: 0;
+        max-width: none;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="chat-room-page">
+    <header class="chat-room-appbar">
+        <button type="button" id="chat-back-button" class="chat-room-back" aria-label="Regresar">
+            <span class="material-symbols-outlined">arrow_back</span>
+        </button>
+        <h1 id="chat-room-title">Contacto del reporte</h1>
+        <div class="chat-room-spacer"></div>
+    </header>
+
+    <div id="messages" class="chat-messages">
+        <div class="chat-room-loading">
+            <div class="chat-spinner"></div>
+        </div>
+    </div>
+
+    <form id="message-form" class="chat-input-bar">
+        <button type="button" class="chat-photo-button" aria-label="Foto">
+            <span class="material-symbols-outlined">photo</span>
+        </button>
+        <input type="text" id="message-input" placeholder="Escribe un mensaje..." autocomplete="off">
+        <button type="submit" class="chat-send-button" aria-label="Enviar">
+            <span class="material-symbols-outlined">send</span>
+        </button>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import {
+        collection,
+        query,
+        orderBy,
+        onSnapshot,
+        addDoc,
+        doc,
+        setDoc,
+        getDoc,
+        serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    import {
+        onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    const db = window.firebaseDb;
+    const auth = window.firebaseAuth;
+    const receiverId = "{{ receiver_id }}";
+    const requestedName = new URLSearchParams(window.location.search).get('name');
+
+    const title = document.getElementById('chat-room-title');
+    const messagesContainer = document.getElementById('messages');
+    const form = document.getElementById('message-form');
+    const input = document.getElementById('message-input');
+    const backButton = document.getElementById('chat-back-button');
+
+    let unsubscribeMessages = null;
+
+    function escaparHtml(texto) {
+        return String(texto ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    function getChatId(userId1, userId2) {
+        return [userId1, userId2].sort().join('_');
+    }
+
+    function mostrarError(texto) {
+        messagesContainer.innerHTML = `<div class="chat-room-message-state">${escaparHtml(texto)}</div>`;
+    }
+
+    function renderizarMensajes(snapshot, currentUserId) {
+        if (snapshot.empty) {
+            messagesContainer.innerHTML = `
+                <div class="chat-room-message-state">
+                    No hay mensajes aún. Escribe el primero.
+                </div>
+            `;
+            return;
+        }
+
+        messagesContainer.innerHTML = '';
+
+        snapshot.docs.forEach(messageDoc => {
+            const data = messageDoc.data() || {};
+            const isMe = data.senderId === currentUserId;
+
+            const bubbleWrapper = document.createElement('div');
+            bubbleWrapper.className = `chat-bubble-row ${isMe ? 'mine' : 'theirs'}`;
+            bubbleWrapper.innerHTML = `
+                <div class="chat-bubble ${isMe ? 'mine' : 'theirs'}">
+                    ${escaparHtml(data.message || '')}
+                </div>
+            `;
+
+            messagesContainer.appendChild(bubbleWrapper);
+        });
+
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    async function cargarNombre() {
+        if (requestedName) {
+            title.textContent = requestedName;
+            return;
+        }
+
+        if (!receiverId) return;
+
+        try {
+            const userSnapshot = await getDoc(doc(db, 'usuarios', receiverId));
+            if (userSnapshot.exists()) {
+                const data = userSnapshot.data() || {};
+                title.textContent = data.nombre || 'Contacto del reporte';
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    backButton.addEventListener('click', () => {
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            window.location.href = "{% url 'chat_list_screen' %}";
+        }
+    });
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+
+        const user = auth.currentUser;
+        const message = input.value;
+
+        if (!user || !receiverId || !message.trim()) return;
+
+        input.disabled = true;
+
+        try {
+            const chatId = getChatId(user.uid, receiverId);
+            const timestamp = serverTimestamp();
+
+            await addDoc(
+                collection(db, 'chats', chatId, 'messages'),
+                {
+                    senderId: user.uid,
+                    receiverId,
+                    message: message.trim(),
+                    timestamp
+                }
+            );
+
+            await setDoc(
+                doc(db, 'chats', chatId),
+                {
+                    participants: [user.uid, receiverId],
+                    lastMessage: message.trim(),
+                    lastMessageTime: timestamp
+                },
+                { merge: true }
+            );
+
+            input.value = '';
+        } catch (error) {
+            console.error(error);
+        } finally {
+            input.disabled = false;
+            input.focus();
+        }
+    });
+
+    onAuthStateChanged(auth, async user => {
+        if (!user) {
+            window.location.href = "{% url 'login' %}";
+            return;
+        }
+
+        await cargarNombre();
+
+        const chatId = getChatId(user.uid, receiverId);
+        const messagesQuery = query(
+            collection(db, 'chats', chatId, 'messages'),
+            orderBy('timestamp', 'asc')
+        );
+
+        unsubscribeMessages?.();
+
+        unsubscribeMessages = onSnapshot(
+            messagesQuery,
+            snapshot => renderizarMensajes(snapshot, user.uid),
+            error => {
+                console.error(error);
+                mostrarError('Error al cargar mensajes');
+            }
+        );
+    });
+</script>
+{% endblock %}

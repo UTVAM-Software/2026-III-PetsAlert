@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+
+{% block title %}Privacidad - Pets Alert{% endblock %}
+
+{% block bottom_nav %}{% endblock %}
+
+{% block extra_head %}
+<style>
+    main {
+        padding: 0;
+        max-width: none;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="privacy-page">
+    <header class="privacy-appbar">
+        <button type="button" id="privacy-back" aria-label="Regresar">
+            <span class="material-symbols-outlined">arrow_back</span>
+        </button>
+        <h1>Privacidad</h1>
+        <div class="privacy-spacer"></div>
+    </header>
+
+    <div class="privacy-content">
+        <h2>Gestión de Datos y Privacidad</h2>
+        <p>En Pets Alert nos tomamos en serio tu seguridad. Aquí puedes gestionar cómo se utiliza tu información dentro de la comunidad.</p>
+
+        <div class="privacy-switch-row">
+            <div class="privacy-switch-text">
+                <strong>Ocultar mi correo en reportes</strong>
+                <span>Los usuarios solo podrán contactarte por el chat interno.</span>
+            </div>
+            <div class="privacy-switch is-on" aria-hidden="true"><span></span></div>
+        </div>
+
+        <div class="privacy-divider"></div>
+
+        <button type="button" class="privacy-row">
+            <span class="material-symbols-outlined">download</span>
+            <span class="privacy-row-text">
+                <strong>Descargar mis datos</strong>
+                <span>Solicita una copia de tus reportes y mensajes (Derechos ARCO).</span>
+            </span>
+            <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+
+        <div class="privacy-divider"></div>
+
+        <button type="button" class="privacy-delete">
+            <span class="material-symbols-outlined">delete_forever</span>
+            <span>Eliminar mi cuenta permanentemente</span>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('privacy-back').addEventListener('click', () => {
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            window.location.href = "{% url 'profile_screen' %}";
+        }
+    });
+</script>
+{% endblock %}
