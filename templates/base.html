@@ -1,0 +1,98 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Pets Alert{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getStorage } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAndiLVbFPsFIgTfM0VCp2yLgA7hPK4Rjo",
+            authDomain: "pataextraviada-49f83.firebaseapp.com",
+            projectId: "pataextraviada-49f83",
+            storageBucket: "pataextraviada-49f83.firebasestorage.app",
+            messagingSenderId: "293844282338",
+            appId: "1:293844282338:web:44feb4dcdfc54464cda7bb"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        window.firebaseApp = app;
+        window.firebaseAuth = auth;
+        window.firebaseDb = db;
+        window.firebaseStorage = storage;
+    </script>
+
+    {% block extra_head %}{% endblock %}
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined">
+</head>
+
+<body>
+    <main>
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    {% block bottom_nav %}
+    <nav class="bottom-nav" aria-label="Navegación principal">
+        <a href="{% url 'feed_screen' %}"
+            class="bottom-nav-item{% if request.resolver_match.url_name == 'feed_screen' %} active{% endif %}">
+            <span class="material-symbols-outlined">home</span>
+            <span>Inicio</span>
+        </a>
+        <a href="{% url 'my_reports_screen' %}"
+            class="bottom-nav-item{% if request.resolver_match.url_name == 'my_reports_screen' or request.resolver_match.url_name == 'edit_report_screen' %} active{% endif %}">
+            <span class="material-symbols-outlined">pets</span>
+            <span>Mis Reportes</span>
+        </a>
+        <a href="{% url 'chat_list_screen' %}"
+            class="bottom-nav-item{% if request.resolver_match.url_name == 'chat_list_screen' or request.resolver_match.url_name == 'chat_room_screen' %} active{% endif %}">
+            <span class="material-symbols-outlined">chat</span>
+            <span>Mensajes</span>
+        </a>
+        <a href="{% url 'profile_screen' %}"
+            class="bottom-nav-item{% if request.resolver_match.url_name == 'profile_screen' or request.resolver_match.url_name == 'privacy_screen' %} active{% endif %}">
+            <span class="material-symbols-outlined">person</span>
+            <span>Perfil</span>
+        </a>
+    </nav>
+    {% endblock %}
+
+
+    <div id="flash-message" class="flash-message is-hidden" role="status" aria-live="polite"></div>
+
+    <script>
+        (function () {
+            const flash = document.getElementById('flash-message');
+            const message = sessionStorage.getItem('petsAlertMessage');
+
+            if (!flash || !message) {
+                return;
+            }
+
+            sessionStorage.removeItem('petsAlertMessage');
+
+            flash.textContent = message;
+            flash.classList.remove('is-hidden');
+
+            setTimeout(() => {
+                flash.classList.add('is-hidden');
+            }, 3500);
+        })();
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

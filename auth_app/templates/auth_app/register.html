@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+
+{% block title %}Crear cuenta - Pets Alert{% endblock %}
+
+{% block extra_head %}
+<style>
+    .navbar {
+        display: none;
+    }
+
+    main {
+        padding: 0;
+        max-width: none;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block bottom_nav %}{% endblock %}
+
+{% block content %}
+<div class="register-page">
+    <div class="register-container">
+        <h1>Crear cuenta</h1>
+
+        <p class="register-subtitle">
+            Regístrate para empezar a buscar
+        </p>
+
+        <form id="register-form" novalidate>
+            <div class="register-field">
+                <label for="name">Nombre completo</label>
+
+                <div class="register-input-wrapper">
+                    <span class="material-symbols-outlined">person</span>
+                    <input
+                        type="text"
+                        id="name"
+                        autocomplete="name"
+                    >
+                </div>
+            </div>
+
+            <div class="register-field">
+                <label for="email">Correo electrónico</label>
+
+                <div class="register-input-wrapper">
+                    <span class="material-symbols-outlined">email</span>
+                    <input
+                        type="email"
+                        id="email"
+                        autocomplete="email"
+                    >
+                </div>
+            </div>
+
+            <div class="register-field">
+                <label for="password">Contraseña</label>
+
+                <div class="register-input-wrapper">
+                    <span class="material-symbols-outlined">lock</span>
+                    <input
+                        type="password"
+                        id="password"
+                        autocomplete="new-password"
+                    >
+                </div>
+            </div>
+
+            <div class="register-field">
+                <label for="confirm-password">Confirmar contraseña</label>
+
+                <div class="register-input-wrapper">
+                    <span class="material-symbols-outlined">lock_outline</span>
+                    <input
+                        type="password"
+                        id="confirm-password"
+                        autocomplete="new-password"
+                    >
+                </div>
+            </div>
+
+            <div id="register-error" class="register-error"></div>
+
+            <div id="register-success" class="register-success"></div>
+
+            <button
+                type="submit"
+                id="register-button"
+                class="register-submit-button"
+            >
+                Registrarme
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import {
+        createUserWithEmailAndPassword,
+        sendEmailVerification,
+        signOut
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    import {
+        doc,
+        setDoc,
+        serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const auth = window.firebaseAuth;
+    const db = window.firebaseDb;
+
+    const form = document.getElementById('register-form');
+    const nameInput = document.getElementById('name');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const confirmPasswordInput = document.getElementById('confirm-password');
+    const registerButton = document.getElementById('register-button');
+    const registerError = document.getElementById('register-error');
+    const registerSuccess = document.getElementById('register-success');
+
+    function mostrarError(mensaje) {
+        registerError.textContent = mensaje;
+    }
+
+    function mostrarExito(mensaje) {
+        registerSuccess.textContent = mensaje;
+    }
+
+    function limpiarMensajes() {
+        registerError.textContent = '';
+        registerSuccess.textContent = '';
+    }
+
+    function obtenerMensajeError(code) {
+        switch (code) {
+            case 'auth/email-already-in-use':
+                return 'Este correo ya está registrado.';
+
+            case 'auth/invalid-email':
+                return 'El correo no es válido.';
+
+            case 'auth/weak-password':
+                return 'La contraseña debe tener al menos 6 caracteres.';
+
+            case 'auth/operation-not-allowed':
+                return 'El registro con correo y contraseña no está habilitado.';
+
+            case 'auth/network-request-failed':
+                return 'No se pudo conectar con Firebase.';
+
+            default:
+                return 'Ocurrió un error. Intenta de nuevo.';
+        }
+    }
+
+    function cambiarEstadoCarga(cargando) {
+        registerButton.disabled = cargando;
+
+        if (cargando) {
+            registerButton.innerHTML = `
+                <span class="register-spinner"></span>
+            `;
+        } else {
+            registerButton.textContent = 'Registrarme';
+        }
+    }
+
+    function validarContraseña(password) {
+        const hasMinLength = password.length >= 8;
+        const hasLetter = /[a-zA-Z]/.test(password);
+        const hasNumber = /\d/.test(password);
+        const hasSymbol = /[!@#$&*~%]/.test(password);
+
+        return hasMinLength && hasLetter && hasNumber && hasSymbol;
+    }
+
+    form.addEventListener('submit', async event => {
+        event.preventDefault();
+
+        limpiarMensajes();
+
+        const nombre = nameInput.value.trim();
+        const email = emailInput.value.trim();
+        const password = passwordInput.value.trim();
+        const confirmPassword = confirmPasswordInput.value.trim();
+
+        if (!validarContraseña(password)) {
+            mostrarError(
+                'La contraseña debe tener al menos 8 caracteres, incluir una letra, un número y un símbolo.'
+            );
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            mostrarError('Las contraseñas no coinciden.');
+            return;
+        }
+
+        cambiarEstadoCarga(true);
+
+        try {
+            const result = await createUserWithEmailAndPassword(
+                auth,
+                email,
+                password
+            );
+
+            const user = result.user;
+
+            await setDoc(
+                doc(db, 'usuarios', user.uid),
+                {
+                    userId: user.uid,
+                    nombre: nombre,
+                    email: email,
+                    telefono: '',
+                    fotoPerfil: '',
+                    localidad: '',
+                    role: 'user',
+                    fechaRegistro: serverTimestamp(),
+                    activo: true
+                }
+            );
+
+            await sendEmailVerification(user);
+
+            await signOut(auth);
+
+            mostrarExito(
+                'Cuenta creada. Revisa tu correo para verificar tu cuenta.'
+            );
+
+            form.reset();
+        } catch (error) {
+            console.error(error);
+            mostrarError(obtenerMensajeError(error.code));
+        } finally {
+            cambiarEstadoCarga(false);
+        }
+    });
+</script>
+{% endblock %}
