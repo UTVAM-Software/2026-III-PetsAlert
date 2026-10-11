@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+
+{% block title %}Mis Reportes - Pets Alert{% endblock %}
+
+{% block extra_head %}
+<style>
+    main {
+        padding: 0;
+        max-width: none;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="my-reports-page">
+    <header class="my-reports-appbar">
+        <h1>Mis Reportes</h1>
+    </header>
+
+    <div id="reports-container" class="my-reports-content">
+        <div class="my-reports-loading">
+            <div class="my-reports-spinner"></div>
+        </div>
+    </div>
+</div>
+
+<div class="confirm-modal-backdrop" id="delete-modal" hidden>
+    <div class="confirm-modal" role="dialog" aria-modal="true">
+        <h2>¿Eliminar reporte?</h2>
+        <p>Esta acción no se puede deshacer.</p>
+        <div class="confirm-modal-actions">
+            <button type="button" id="delete-cancel">Cancelar</button>
+            <button type="button" id="delete-confirm">Eliminar</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import {
+        collection,
+        query,
+        where,
+        orderBy,
+        onSnapshot,
+        doc,
+        deleteDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    import {
+        onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    const db = window.firebaseDb;
+    const auth = window.firebaseAuth;
+    const container = document.getElementById('reports-container');
+
+    const deleteModal = document.getElementById('delete-modal');
+    const deleteCancel = document.getElementById('delete-cancel');
+    const deleteConfirm = document.getElementById('delete-confirm');
+    let reportToDelete = null;
+
+    function escaparHtml(texto) {
+        return String(texto ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    function obtenerImagenSrc(base64) {
+        if (!base64 || typeof base64 !== 'string') return null;
+        return base64.startsWith('data:')
+            ? base64
+            : `data:image/jpeg;base64,${base64}`;
+    }
+
+    function mostrarEstado(texto, clase = '') {
+        container.innerHTML = `<div class="my-reports-message ${clase}">${escaparHtml(texto)}</div>`;
+    }
+
+    function renderizarReportes(snapshot) {
+        if (snapshot.empty) {
+            mostrarEstado('No has creado ningún reporte aún.');
+            return;
+        }
+
+        container.innerHTML = '';
+
+        snapshot.docs.forEach(reportDoc => {
+            const data = reportDoc.data() || {};
+            const mascota = data.mascota || {};
+            const ubicacion = data.ubicacion || {};
+            const imageSrc = obtenerImagenSrc(mascota.fotoBase64);
+            const encontrada = data.tipoReporte === 'encontrada';
+
+            const card = document.createElement('article');
+            card.className = 'my-report-card';
+            card.innerHTML = `
+                <div class="my-report-main">
+                    <div class="my-report-image">
+                        ${imageSrc
+                            ? `<img src="${imageSrc}" alt="${escaparHtml(mascota.especie || 'Mascota')}">`
+                            : `<span class="material-symbols-outlined">pets</span>`
+                        }
+                    </div>
+                    <div class="my-report-info">
+                        <h2>${escaparHtml(mascota.especie || 'Desconocida')}</h2>
+                        <p>${escaparHtml(ubicacion.localidad || 'Sin ubicación')}</p>
+                    </div>
+                    <span class="my-report-status ${encontrada ? 'found' : 'lost'}">${encontrada ? 'ENCONTRADA' : 'BUSCADA'}</span>
+                </div>
+                <div class="my-report-actions">
+                    <a href="/feed/add/${encodeURIComponent(reportDoc.id)}/" class="my-report-edit">
+                        <span class="material-symbols-outlined">edit</span>
+                        <span>Editar</span>
+                    </a>
+                    <button type="button" class="my-report-delete" data-report-id="${escaparHtml(reportDoc.id)}">
+                        <span class="material-symbols-outlined">delete_outline</span>
+                        <span>Borrar</span>
+                    </button>
+                </div>
+            `;
+
+            const image = card.querySelector('img');
+            if (image) {
+                image.addEventListener('error', () => {
+                    image.replaceWith(Object.assign(document.createElement('span'), {
+                        className: 'material-symbols-outlined',
+                        textContent: 'pets'
+                    }));
+                });
+            }
+
+            card.querySelector('.my-report-delete').addEventListener('click', () => {
+                reportToDelete = reportDoc.id;
+                deleteModal.hidden = false;
+            });
+
+            container.appendChild(card);
+        });
+    }
+
+    deleteCancel.addEventListener('click', () => {
+        reportToDelete = null;
+        deleteModal.hidden = true;
+    });
+
+    deleteModal.addEventListener('click', event => {
+        if (event.target === deleteModal) {
+            reportToDelete = null;
+            deleteModal.hidden = true;
+        }
+    });
+
+    deleteConfirm.addEventListener('click', async () => {
+        if (!reportToDelete) return;
+
+        const id = reportToDelete;
+        reportToDelete = null;
+        deleteModal.hidden = true;
+        deleteConfirm.disabled = true;
+
+        try {
+            await deleteDoc(doc(db, 'publicaciones', id));
+        } catch (error) {
+            console.error(error);
+            mostrarEstado('Error al eliminar', 'error');
+        } finally {
+            deleteConfirm.disabled = false;
+        }
+    });
+
+    onAuthStateChanged(auth, user => {
+        if (!user) {
+            window.location.href = "{% url 'login' %}";
+            return;
+        }
+
+        const reportsQuery = query(
+            collection(db, 'publicaciones'),
+            where('userId', '==', user.uid),
+            orderBy('fechaPublicacion', 'desc')
+        );
+
+        onSnapshot(
+            reportsQuery,
+            snapshot => renderizarReportes(snapshot),
+            error => {
+                console.error(error);
+                mostrarEstado('Error al cargar tus reportes.', 'error');
+            }
+        );
+    });
+</script>
+{% endblock %}

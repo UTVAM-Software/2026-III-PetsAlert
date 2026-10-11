@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+
+{% block title %}Detalle de mascota - Pets Alert{% endblock %}
+
+{% block extra_head %}
+<style>
+    .navbar {
+        display: none;
+    }
+
+    main {
+        padding: 0;
+        max-width: none;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block bottom_nav %}{% endblock %}
+
+{% block content %}
+<div class="pet-detail-page">
+    <header class="pet-detail-appbar">
+        <button type="button" class="pet-detail-back-button" id="back-button" aria-label="Regresar">
+            <span class="material-symbols-outlined">arrow_back</span>
+        </button>
+        <h1 id="pet-detail-title">Detalle de mascota</h1>
+        <div class="pet-detail-appbar-spacer"></div>
+    </header>
+
+    <div id="detail-container" class="pet-detail-container">
+        <div class="pet-detail-loading">
+            <div class="pet-detail-spinner"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import {
+        doc,
+        getDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const db = window.firebaseDb;
+    const auth = window.firebaseAuth;
+    const reporteId = "{{ reporte_id }}";
+
+    const container = document.getElementById('detail-container');
+    const title = document.getElementById('pet-detail-title');
+    const backButton = document.getElementById('back-button');
+
+    function escaparHtml(texto) {
+        return String(texto)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    function obtenerImagenSrc(base64) {
+        if (!base64 || typeof base64 !== 'string') {
+            return null;
+        }
+
+        const contenido = base64.includes(',')
+            ? base64.split(',').pop()
+            : base64;
+
+        try {
+            const bytes = Uint8Array.from(
+                atob(contenido.substring(0, 32)),
+                char => char.charCodeAt(0)
+            );
+
+            if (
+                bytes.length >= 8 &&
+                bytes[0] === 0x89 &&
+                bytes[1] === 0x50 &&
+                bytes[2] === 0x4E &&
+                bytes[3] === 0x47
+            ) {
+                return `data:image/png;base64,${contenido}`;
+            }
+
+            if (
+                bytes.length >= 3 &&
+                bytes[0] === 0xFF &&
+                bytes[1] === 0xD8 &&
+                bytes[2] === 0xFF
+            ) {
+                return `data:image/jpeg;base64,${contenido}`;
+            }
+
+            if (
+                bytes.length >= 12 &&
+                bytes[0] === 0x52 &&
+                bytes[1] === 0x49 &&
+                bytes[2] === 0x46 &&
+                bytes[3] === 0x46 &&
+                bytes[8] === 0x57 &&
+                bytes[9] === 0x45 &&
+                bytes[10] === 0x42 &&
+                bytes[11] === 0x50
+            ) {
+                return `data:image/webp;base64,${contenido}`;
+            }
+
+            return `data:image/jpeg;base64,${contenido}`;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function mostrarError(mensaje) {
+        container.innerHTML = `
+            <div class="pet-detail-message">
+                ${escaparHtml(mensaje)}
+            </div>
+        `;
+    }
+
+    backButton.addEventListener('click', () => {
+        if (window.history.length > 1) {
+            window.history.back();
+        } else {
+            window.location.href = "{% url 'feed_screen' %}";
+        }
+    });
+
+    async function cargarDetalle() {
+        try {
+            const docRef = doc(db, "publicaciones", reporteId);
+            const docSnap = await getDoc(docRef);
+
+            if (!docSnap.exists()) {
+                mostrarError('El reporte no existe.');
+                return;
+            }
+
+            const data = docSnap.data();
+            const mascota = data.mascota || {};
+            const ubicacion = data.ubicacion || {};
+
+            const tipoReporte = data.tipoReporte || 'buscada';
+            const especie = mascota.especie || 'Otro';
+            const nombre = mascota.nombre || '';
+            const descripcion = mascota.descripcion || '';
+            const localidad = ubicacion.localidad || '';
+            const fotoBase64 = mascota.fotoBase64 || null;
+            const usuarioId = data.userId || '';
+
+            const currentUser = auth.currentUser;
+            const currentUserId = currentUser ? currentUser.uid : null;
+            const isMyReport = currentUserId === usuarioId;
+
+            const imagenSrc = obtenerImagenSrc(fotoBase64);
+            const titulo = nombre.trim() !== ''
+                ? nombre
+                : 'Detalle de mascota';
+
+            title.textContent = titulo;
+
+            const textoReporte = tipoReporte === 'encontrada'
+                ? 'RESCATADO'
+                : 'SE BUSCA';
+
+            let imagenHtml = '';
+
+            if (imagenSrc) {
+                imagenHtml = `
+                    <div class="pet-detail-image-wrapper">
+                        <img
+                            src="${imagenSrc}"
+                            class="pet-detail-image-background"
+                            alt=""
+                        >
+                        <div class="pet-detail-image-overlay"></div>
+                        <img
+                            src="${imagenSrc}"
+                            class="pet-detail-image-main"
+                            alt="${escaparHtml(especie)}"
+                        >
+                    </div>
+                `;
+            } else {
+                imagenHtml = `
+                    <div class="pet-detail-no-image">
+                        <span class="material-symbols-outlined">pets</span>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = `
+                ${imagenHtml}
+
+                <div class="pet-detail-body">
+                    <div class="pet-detail-report-type">
+                        Reporte: ${textoReporte}
+                    </div>
+
+                    <div class="pet-detail-spacer-small"></div>
+
+                    <div class="pet-detail-field">
+                        Especie: ${escaparHtml(especie)}
+                    </div>
+
+                    <div class="pet-detail-spacer-tiny"></div>
+
+                    <div class="pet-detail-field">
+                        Localidad: ${escaparHtml(localidad)}
+                    </div>
+
+                    <div class="pet-detail-spacer-medium"></div>
+
+                    <div class="pet-detail-description-title">
+                        Descripción:
+                    </div>
+
+                    <div class="pet-detail-spacer-tiny"></div>
+
+                    <div class="pet-detail-description">
+                        ${escaparHtml(descripcion)}
+                    </div>
+
+                    ${
+                        !isMyReport
+                            ? `
+                                <div class="pet-detail-spacer-large"></div>
+
+                                <button
+                                    type="button"
+                                    class="pet-detail-chat-button"
+                                    id="chat-button"
+                                    data-user-id="${escaparHtml(usuarioId)}"
+                                >
+                                    <span class="pet-detail-chat-icon material-symbols-outlined">chat</span>
+                                    <span>Contactar por Chat</span>
+                                </button>
+                            `
+                            : ''
+                    }
+                </div>
+            `;
+
+            const renderedImage = container.querySelector('.pet-detail-image-main');
+
+            if (renderedImage) {
+                renderedImage.addEventListener('error', () => {
+                    const wrapper = renderedImage.closest('.pet-detail-image-wrapper');
+
+                    if (wrapper) {
+                        wrapper.innerHTML = `
+                            <div class="pet-detail-no-image">
+                                <span class="material-symbols-outlined">pets</span>
+                            </div>
+                        `;
+                    }
+                });
+            }
+
+            const chatButton = document.getElementById('chat-button');
+
+            if (chatButton) {
+                chatButton.addEventListener('click', () => {
+                    const receiverId = chatButton.dataset.userId;
+
+                    if (!receiverId) {
+                        return;
+                    }
+
+                    window.location.href = `/chat/room/${encodeURIComponent(receiverId)}/?name=${encodeURIComponent('Contacto del reporte')}`;
+                });
+            }
+        } catch (error) {
+            console.error(error);
+            mostrarError('Error al cargar el reporte.');
+        }
+    }
+
+    cargarDetalle();
+</script>
+{% endblock %}
