@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin - Pets Alert{% endblock %}
+
+{% block extra_head %}
+<style>
+    .navbar {
+        display: none;
+    }
+
+    main {
+        padding: 0;
+        max-width: none;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="my-reports-page">
+    <header class="feed-appbar">
+        <div class="feed-appbar-title">
+            <span class="feed-paw material-symbols-outlined">admin_panel_settings</span>
+            <span>Panel Global</span>
+        </div>
+        <a href="{% url 'feed_screen' %}" class="feed-search-button" style="text-decoration: none;">
+            <span class="material-symbols-outlined">close</span>
+        </a>
+    </header>
+
+    <div class="my-reports-content">
+        <div id="admin-container">
+            <div class="feed-loading">
+                <div class="feed-spinner"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="confirm-modal" class="confirm-modal-backdrop" hidden>
+    <div class="confirm-modal">
+        <h2>Eliminar Reporte</h2>
+        <p>¿Confirmas que deseas eliminar este reporte de la base de datos global? Esta acción no se puede deshacer.</p>
+        <div class="confirm-modal-actions">
+            <button type="button" id="delete-cancel" class="profile-modal-cancel">Cancelar</button>
+            <button type="button" id="delete-confirm">Eliminar</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import {
+        collection,
+        onSnapshot,
+        orderBy,
+        query,
+        doc,
+        deleteDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const db = window.firebaseDb;
+    const adminContainer = document.getElementById('admin-container');
+    const confirmModal = document.getElementById('confirm-modal');
+    const btnCancel = document.getElementById('delete-cancel');
+    const btnConfirm = document.getElementById('delete-confirm');
+
+    let reporteAEliminar = null;
+
+    function obtenerImagenSrc(base64) {
+        if (!base64 || typeof base64 !== 'string') return null;
+        const contenido = base64.includes(',') ? base64.split(',').pop() : base64;
+        try {
+            const bytes = Uint8Array.from(atob(contenido.substring(0, 32)), char => char.charCodeAt(0));
+            if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return `data:image/png;base64,${contenido}`;
+            if (bytes.length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return `data:image/jpeg;base64,${contenido}`;
+            if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return `data:image/webp;base64,${contenido}`;
+            return `data:image/jpeg;base64,${contenido}`;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function escaparHtml(texto) {
+        return String(texto).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+    }
+
+    window.abrirModalEliminar = function(id) {
+        reporteAEliminar = id;
+        confirmModal.hidden = false;
+    };
+
+    btnCancel.addEventListener('click', () => {
+        reporteAEliminar = null;
+        confirmModal.hidden = true;
+    });
+
+    btnConfirm.addEventListener('click', async () => {
+        if (!reporteAEliminar) return;
+        btnConfirm.disabled = true;
+        btnConfirm.textContent = 'Eliminando...';
+        try {
+            await deleteDoc(doc(db, 'publicaciones', reporteAEliminar));
+            confirmModal.hidden = true;
+        } catch (error) {
+            console.error(error);
+            alert('Error al eliminar el reporte');
+        } finally {
+            btnConfirm.disabled = false;
+            btnConfirm.textContent = 'Eliminar';
+            reporteAEliminar = null;
+        }
+    });
+
+    function cargarReportesGlobales() {
+        const q = query(collection(db, 'publicaciones'), orderBy('fechaPublicacion', 'desc'));
+
+        onSnapshot(q, snapshot => {
+            if (snapshot.empty) {
+                adminContainer.innerHTML = '<div class="my-reports-message">No hay reportes en la base de datos.</div>';
+                return;
+            }
+
+            adminContainer.innerHTML = '';
+
+            snapshot.forEach(docSnap => {
+                const data = docSnap.data();
+                const mascota = data.mascota || {};
+                const ubicacion = data.ubicacion || {};
+                const tipo = data.tipoReporte || 'se busca';
+                
+                const isFound = tipo === 'encontrado';
+                const imagenSrc = obtenerImagenSrc(mascota.fotoBase64);
+                
+                const card = document.createElement('div');
+                card.className = 'my-report-card';
+                
+                card.innerHTML = `
+                    <div class="my-report-main">
+                        <div class="my-report-image">
+                            ${imagenSrc ? `<img src="${imagenSrc}">` : `<span class="material-symbols-outlined">pets</span>`}
+                        </div>
+                        <div class="my-report-info">
+                            <h2>${escaparHtml(mascota.especie || 'Desconocida')}</h2>
+                            <p>${escaparHtml(ubicacion.localidad || 'Sin ubicación')}</p>
+                        </div>
+                        <div class="my-report-status ${isFound ? 'found' : 'lost'}">
+                            ${isFound ? 'ENCONTRADO' : 'SE BUSCA'}
+                        </div>
+                    </div>
+                    <div class="my-report-actions">
+                        <a href="#" class="detail-link" style="color:var(--text-secondary); text-decoration: none; display: flex; align-items: center; gap: 5px; font-size: 14px; font-weight: 500; padding: 0 12px; min-height: 40px;">
+                            <span class="material-symbols-outlined">visibility</span> Ver
+                        </a>
+                        <a href="#" class="my-report-edit edit-link" style="text-decoration: none;">
+                            <span class="material-symbols-outlined">edit</span> Editar
+                        </a>
+                        <button class="my-report-delete" onclick="abrirModalEliminar('${docSnap.id}')">
+                            <span class="material-symbols-outlined">delete</span> Eliminar
+                        </button>
+                    </div>
+                `;
+
+                const detailLink = card.querySelector('.detail-link');
+                detailLink.href = "{% url 'pet_detail_screen' pk=0 %}".replace('/0/', `/${docSnap.id}/`);
+
+                const editLink = card.querySelector('.edit-link');
+                editLink.href = "{% url 'edit_report_screen' pk=0 %}".replace('/0/', `/${docSnap.id}/`);
+
+                adminContainer.appendChild(card);
+            });
+        }, error => {
+            console.error(error);
+            adminContainer.innerHTML = '<div class="my-reports-message error">Error al cargar la base de datos.</div>';
+        });
+    }
+
+    cargarReportesGlobales();
+</script>
+{% endblock %}

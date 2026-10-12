@@ -66,6 +66,14 @@
             <span class="material-symbols-outlined">person</span>
             <span>Perfil</span>
         </a>
+
+        {% if request.session.is_admin %}
+        <a href="{% url 'admin_dashboard' %}"
+            class="bottom-nav-item {% if request.resolver_match.url_name == 'admin_dashboard' %}active{% endif %}">
+            <span class="material-symbols-outlined">admin_panel_settings</span>
+            Admin
+        </a>
+        {% endif %}
     </nav>
     {% endblock %}
 

@@ -1,4 +1,6 @@
 from django.shortcuts import render
+from auth_app.decorators import admin_required
+from firebase_admin import firestore
 
 
 def feed_screen(request):
@@ -19,3 +21,11 @@ def pet_detail_screen(request, pk):
         'feed/pet_detail_screen.html',
         {'reporte_id': pk}
     )
+
+
+@admin_required
+def admin_dashboard(request):
+    return render(request, 'feed/admin_dashboard.html')
+
+def edit_report_screen(request, pk):
+    return render(request, 'feed/add_report_screen.html', {'reporte_id': pk})
