@@ -1,0 +1,275 @@
+{% extends 'base.html' %}
+
+{% block title %}Feed - Pets Alert{% endblock %}
+
+{% block extra_head %}
+<style>
+    .navbar {
+        display: none;
+    }
+
+    main {
+        padding: 0;
+        max-width: none;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="feed-page">
+    <header class="feed-appbar">
+        <div class="feed-appbar-title">
+            <span class="feed-paw material-symbols-outlined">pets</span>
+            <span>Pets Alert</span>
+        </div>
+
+        <button type="button" class="feed-search-button" aria-label="Buscar">
+            <span class="material-symbols-outlined">search</span>
+        </button>
+    </header>
+
+    <div class="feed-filters-wrapper">
+        <div id="feed-filters" class="feed-filters"></div>
+    </div>
+
+    <div class="feed-content">
+        <div id="feed-container" class="feed-grid">
+            <div class="feed-loading">
+                <div class="feed-spinner"></div>
+            </div>
+        </div>
+    </div>
+
+    <a href="{% url 'add_report_screen' %}" class="feed-report-button">
+        <span class="feed-report-icon">+</span>
+        <span>Reportar</span>
+    </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import {
+        collection,
+        onSnapshot,
+        orderBy,
+        query
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const db = window.firebaseDb;
+    const feedContainer = document.getElementById('feed-container');
+    const filtersContainer = document.getElementById('feed-filters');
+
+    const categorias = [
+        'Todos',
+        'Perro',
+        'Gato',
+        'Ave',
+        'Conejo',
+        'Otro'
+    ];
+
+    let filtroSeleccionado = 'Todos';
+    let todosLosReportes = [];
+
+    function obtenerImagenSrc(base64) {
+        if (!base64 || typeof base64 !== 'string') {
+            return null;
+        }
+
+        const contenido = base64.includes(',')
+            ? base64.split(',').pop()
+            : base64;
+
+        try {
+            const bytes = Uint8Array.from(atob(contenido.substring(0, 32)), char => char.charCodeAt(0));
+
+            if (
+                bytes.length >= 8 &&
+                bytes[0] === 0x89 &&
+                bytes[1] === 0x50 &&
+                bytes[2] === 0x4E &&
+                bytes[3] === 0x47
+            ) {
+                return `data:image/png;base64,${contenido}`;
+            }
+
+            if (
+                bytes.length >= 3 &&
+                bytes[0] === 0xFF &&
+                bytes[1] === 0xD8 &&
+                bytes[2] === 0xFF
+            ) {
+                return `data:image/jpeg;base64,${contenido}`;
+            }
+
+            if (
+                bytes.length >= 12 &&
+                bytes[0] === 0x52 &&
+                bytes[1] === 0x49 &&
+                bytes[2] === 0x46 &&
+                bytes[3] === 0x46 &&
+                bytes[8] === 0x57 &&
+                bytes[9] === 0x45 &&
+                bytes[10] === 0x42 &&
+                bytes[11] === 0x50
+            ) {
+                return `data:image/webp;base64,${contenido}`;
+            }
+
+            return `data:image/jpeg;base64,${contenido}`;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function escaparHtml(texto) {
+        return String(texto)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    function renderizarFiltros() {
+        filtersContainer.innerHTML = '';
+
+        categorias.forEach(categoria => {
+            const button = document.createElement('button');
+
+            button.type = 'button';
+            button.className = 'feed-filter-chip';
+            button.textContent = categoria;
+
+            if (categoria === filtroSeleccionado) {
+                button.classList.add('selected');
+            }
+
+            button.addEventListener('click', () => {
+                filtroSeleccionado = categoria;
+                renderizarFiltros();
+                renderizarReportes();
+            });
+
+            filtersContainer.appendChild(button);
+        });
+    }
+
+    function renderizarReportes() {
+        const reportesFiltrados = todosLosReportes.filter(doc => {
+            if (filtroSeleccionado === 'Todos') {
+                return true;
+            }
+
+            const data = doc.data();
+            const mascota = data.mascota || {};
+
+            return mascota.especie === filtroSeleccionado;
+        });
+
+        if (todosLosReportes.length === 0) {
+            feedContainer.innerHTML = `
+                <div class="feed-empty">
+                    <p>No hay reportes activos.</p>
+                    <p>¡Sé el primero en publicar!</p>
+                </div>
+            `;
+            return;
+        }
+
+        if (reportesFiltrados.length === 0) {
+            feedContainer.innerHTML = `
+                <div class="feed-empty">
+                    <p>No hay reportes de ${escaparHtml(filtroSeleccionado)} en este momento.</p>
+                </div>
+            `;
+            return;
+        }
+
+        feedContainer.innerHTML = '';
+
+        reportesFiltrados.forEach(docSnap => {
+            const data = docSnap.data();
+            const mascota = data.mascota || {};
+            const ubicacion = data.ubicacion || {};
+
+            const tipo = data.tipoReporte || 'se busca';
+            const especie = mascota.especie || 'Desconocida';
+            const localidad = ubicacion.localidad || 'Sin ubicación';
+            const descripcion = mascota.descripcion || 'Sin descripción';
+            const fotoBase64 = mascota.fotoBase64 || null;
+
+            const isFound = tipo === 'encontrado';
+            const imagenSrc = obtenerImagenSrc(fotoBase64);
+
+            const card = document.createElement('a');
+            card.className = 'pet-card';
+            card.href = "{% url 'pet_detail_screen' pk=0 %}".replace('/0/', `/${docSnap.id}/`);
+
+            card.innerHTML = `
+                <div class="pet-image-container">
+                    ${imagenSrc
+                    ? `<img src="${imagenSrc}" alt="Foto de ${escaparHtml(especie)}">`
+                    : `<div class="pet-placeholder"><span class="material-symbols-outlined">pets</span></div>`
+                }
+                </div>
+
+                <div class="status-bar ${isFound ? 'status-encontrada' : 'status-buscada'}">
+                    ${isFound ? 'ENCONTRADO' : 'SE BUSCA'}
+                </div>
+
+                <div class="pet-info">
+                    <h3 class="pet-species">${escaparHtml(especie)}</h3>
+                    <p class="pet-location">${escaparHtml(localidad)}</p>
+                    <p class="pet-description">${escaparHtml(descripcion)}</p>
+                </div>
+            `;
+
+            const image = card.querySelector('img');
+
+            if (image) {
+                image.addEventListener('error', () => {
+                    const placeholder = document.createElement('div');
+
+                    placeholder.className = 'pet-placeholder';
+
+                    placeholder.innerHTML = ` <span class="material-symbols-outlined">pets</span>`;
+
+                    image.replaceWith(placeholder);
+                });
+            }
+
+            feedContainer.appendChild(card);
+        });
+    }
+
+    function cargarReportes() {
+        const publicacionesQuery = query(
+            collection(db, 'publicaciones'),
+            orderBy('fechaPublicacion', 'desc')
+        );
+
+        onSnapshot(
+            publicacionesQuery,
+            snapshot => {
+                todosLosReportes = snapshot.docs;
+                renderizarReportes();
+            },
+            error => {
+                console.error(error);
+
+                feedContainer.innerHTML = `
+                    <div class="feed-error">
+                        Error al cargar las publicaciones.
+                    </div>
+                `;
+            }
+        );
+    }
+
+    renderizarFiltros();
+    cargarReportes();
+</script>
+{% endblock %}

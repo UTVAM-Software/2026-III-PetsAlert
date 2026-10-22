@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+
+{% block title %}Mensajes - Pets Alert{% endblock %}
+
+{% block extra_head %}
+<style>
+    main {
+        padding: 0;
+        max-width: none;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="chat-list-page">
+    <header class="chat-appbar">
+        <h1>Mensajes</h1>
+    </header>
+
+    <div id="chat-list" class="chat-list-content">
+        <div class="chat-loading">
+            <div class="chat-spinner"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+    import {
+        collection,
+        query,
+        where,
+        orderBy,
+        onSnapshot,
+        doc,
+        getDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    import {
+        onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    const db = window.firebaseDb;
+    const auth = window.firebaseAuth;
+    const list = document.getElementById('chat-list');
+    let unsubscribeChats = null;
+
+    function escaparHtml(texto) {
+        return String(texto ?? '')
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+    function formatearHora(timestamp) {
+        if (!timestamp) return '';
+
+        try {
+            const date = timestamp.toDate();
+            return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+        } catch {
+            return '';
+        }
+    }
+
+    function mostrarVacio() {
+        list.innerHTML = `
+            <div class="chat-empty">
+                Aún no tienes conversaciones.
+            </div>
+        `;
+    }
+
+    function mostrarError() {
+        list.innerHTML = `
+            <div class="chat-error">
+                Error al cargar los mensajes.
+            </div>
+        `;
+    }
+
+    function renderizarChats(chats, currentUserId) {
+        if (!chats.length) {
+            mostrarVacio();
+            return;
+        }
+
+        list.innerHTML = '';
+
+        chats.forEach(chatDoc => {
+            const data = chatDoc.data() || {};
+            const participants = Array.isArray(data.participants) ? data.participants : [];
+            const otherUserId = participants.find(id => id !== currentUserId) || '';
+
+            if (!otherUserId) return;
+
+            const tile = document.createElement('a');
+            tile.className = 'chat-tile';
+            tile.href = `/chat/room/${encodeURIComponent(otherUserId)}/`;
+            tile.innerHTML = `
+                <div class="chat-avatar">U</div>
+                <div class="chat-tile-body">
+                    <div class="chat-tile-title">Cargando...</div>
+                    <div class="chat-tile-subtitle">${escaparHtml(data.lastMessage || '')}</div>
+                </div>
+                <div class="chat-tile-time">${formatearHora(data.lastMessageTime)}</div>
+            `;
+
+            list.appendChild(tile);
+
+            getDoc(doc(db, 'usuarios', otherUserId))
+                .then(userSnapshot => {
+                    const userData = userSnapshot.exists() ? (userSnapshot.data() || {}) : {};
+                    const name = userData.nombre || 'Usuario Desconocido';
+                    tile.querySelector('.chat-avatar').textContent = name ? name[0].toUpperCase() : 'U';
+                    tile.querySelector('.chat-tile-title').textContent = name;
+                })
+                .catch(() => {
+                    tile.querySelector('.chat-avatar').textContent = 'U';
+                    tile.querySelector('.chat-tile-title').textContent = 'Error al cargar';
+                });
+        });
+    }
+
+    onAuthStateChanged(auth, user => {
+        if (!user) {
+            window.location.href = "{% url 'login' %}";
+            return;
+        }
+
+        const chatsQuery = query(
+            collection(db, 'chats'),
+            where('participants', 'array-contains', user.uid),
+            orderBy('lastMessageTime', 'desc')
+        );
+
+        unsubscribeChats?.();
+
+        unsubscribeChats = onSnapshot(
+            chatsQuery,
+            snapshot => {
+                const chats = snapshot.docs;
+                renderizarChats(chats, user.uid);
+            },
+            error => {
+                console.error(error);
+                mostrarError();
+            }
+        );
+    });
+</script>
+{% endblock %}
