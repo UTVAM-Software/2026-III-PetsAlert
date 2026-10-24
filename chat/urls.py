@@ -7,10 +7,9 @@ router = SimpleRouter()
 router.register('chats', views.ChatViewSet, basename='chat')
 
 urlpatterns = [
-    # Pantallas
+
     path('', views.chat_list_screen, name='chat_list_screen'),
     path('room/<int:chat_id>/', views.chat_room_screen, name='chat_room_screen'),
 
-    # API: /chat/api/chats/  /chat/api/chats/<id>/  /chat/api/chats/<id>/messages/
     path('api/', include(router.urls)),
 ]

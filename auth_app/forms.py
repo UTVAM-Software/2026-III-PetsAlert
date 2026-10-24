@@ -4,7 +4,6 @@ from django.core.exceptions import ValidationError
 
 from .models import Usuario
 
-
 class LoginForm(forms.Form):
     email = forms.EmailField(
         max_length=254,
@@ -20,7 +19,6 @@ class LoginForm(forms.Form):
 
     def clean_email(self):
         return self.cleaned_data['email'].strip().lower()
-
 
 class RegistroForm(forms.Form):
     nombre = forms.CharField(
@@ -76,7 +74,6 @@ class RegistroForm(forms.Form):
             password=self.cleaned_data['password'],
             nombre=self.cleaned_data['nombre'].strip(),
         )
-
 
 class ReenviarVerificacionForm(forms.Form):
     email = forms.EmailField(

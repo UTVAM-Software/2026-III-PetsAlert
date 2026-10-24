@@ -5,7 +5,6 @@ from .permisos import puede_editar, puede_eliminar
 
 MAX_BYTES_IMAGEN = 5 * 1024 * 1024
 
-
 class PetReportSerializer(serializers.ModelSerializer):
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     species_display = serializers.CharField(source='get_species_display', read_only=True)

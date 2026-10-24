@@ -184,7 +184,7 @@
                         chatButton.disabled = true;
 
                         try {
-                            // Abre el chat de este reporte, o recupera el que ya existe.
+                            
                             const chat = await api(CHAT_API, {
                                 method: 'POST',
                                 body: { report: reporte.id }

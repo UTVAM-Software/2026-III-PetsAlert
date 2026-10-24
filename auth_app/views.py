@@ -19,11 +19,9 @@ from .tokens import token_verificacion_email
 
 logger = logging.getLogger(__name__)
 
-
 def _errores(form):
     """Lista plana con los mensajes de error de un formulario."""
     return [mensaje for lista in form.errors.values() for mensaje in lista]
-
 
 def _destino_seguro(request):
     """Devuelve el parámetro ?next= solo si apunta a este mismo sitio."""
@@ -37,7 +35,6 @@ def _destino_seguro(request):
         return destino
 
     return resolve_url(settings.LOGIN_REDIRECT_URL)
-
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -85,7 +82,6 @@ def login_view(request):
         },
     )
 
-
 def register_view(request):
     if request.user.is_authenticated:
         return redirect(resolve_url(settings.LOGIN_REDIRECT_URL))
@@ -125,13 +121,11 @@ def register_view(request):
         {'errores': errores, 'valores': valores},
     )
 
-
 @require_POST
 def logout_view(request):
     logout(request)
     messages.success(request, 'Sesión cerrada.')
     return redirect('login')
-
 
 def verify_email_view(request, uidb64, token):
     try:
@@ -151,7 +145,6 @@ def verify_email_view(request, uidb64, token):
         )
 
     return redirect('login')
-
 
 def resend_verification_view(request):
     errores = []
@@ -179,7 +172,6 @@ def resend_verification_view(request):
                 if usuario is not None:
                     enviar_verificacion_email(request, usuario)
 
-                # Mismo mensaje exista o no el correo, para no revelar qué cuentas existen.
                 messages.success(
                     request,
                     'Si el correo está registrado y pendiente de verificar, '
@@ -194,7 +186,6 @@ def resend_verification_view(request):
         'auth_app/resend_verification.html',
         {'errores': errores, 'email': email},
     )
-
 
 def forgot_password_view(request):
     errores = []
@@ -224,7 +215,6 @@ def forgot_password_view(request):
                 except Exception:
                     logger.exception('No se pudo enviar el correo de recuperación a %s', email)
 
-                # Mismo mensaje exista o no el correo, para no revelar qué cuentas existen.
                 messages.success(
                     request,
                     'Si el correo está registrado, te enviamos un enlace para '
@@ -240,7 +230,6 @@ def forgot_password_view(request):
         {'errores': errores, 'email': email},
     )
 
-
 class RestablecerContrasenaView(PasswordResetConfirmView):
     """Pantalla a la que llega el enlace del correo para elegir una contraseña nueva."""
 
@@ -248,7 +237,7 @@ class RestablecerContrasenaView(PasswordResetConfirmView):
     success_url = reverse_lazy('login')
 
     def form_valid(self, form):
-        # Quien abre el enlace del correo demuestra que controla ese correo.
+
         self.user.email_verificado = True
         messages.success(
             self.request,

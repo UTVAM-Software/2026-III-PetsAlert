@@ -2,7 +2,6 @@ from django.conf import settings
 from django.db import models
 from django.db.models import F, Q
 
-
 class Chat(models.Model):
     """
     Conversación entre el dueño de un reporte y un usuario interesado en él.
@@ -43,7 +42,6 @@ class Chat(models.Model):
 
     def otro_participante(self, usuario):
         return self.interested if usuario.pk == self.owner_id else self.owner
-
 
 class ChatMessage(models.Model):
     chat = models.ForeignKey(Chat, on_delete=models.CASCADE, related_name='messages')

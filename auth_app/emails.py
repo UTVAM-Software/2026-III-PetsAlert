@@ -10,7 +10,6 @@ from .tokens import token_verificacion_email
 
 logger = logging.getLogger(__name__)
 
-
 def enviar_verificacion_email(request, usuario):
     """
     Envía el enlace para verificar el correo. En desarrollo el correo se imprime

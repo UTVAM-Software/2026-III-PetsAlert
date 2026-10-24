@@ -195,7 +195,6 @@
             try {
                 const datos = await api(url);
 
-                // Si mientras tanto se cambió de filtro, esta respuesta ya no sirve.
                 if (solicitud !== numeroSolicitud) {
                     return;
                 }
@@ -228,7 +227,6 @@
 
         moreButton.addEventListener('click', () => cargar({ reiniciar: false }));
 
-        // Al volver con el botón "atrás" se refresca la lista.
         window.addEventListener('pageshow', event => {
             if (event.persisted) {
                 cargar({ reiniciar: true });

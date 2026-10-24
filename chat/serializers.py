@@ -6,7 +6,6 @@ from .models import Chat, ChatMessage
 
 MAX_CARACTERES_MENSAJE = 2000
 
-
 class CrearChatSerializer(serializers.Serializer):
     report = serializers.PrimaryKeyRelatedField(
         queryset=PetReport.objects.all(),
@@ -16,7 +15,6 @@ class CrearChatSerializer(serializers.Serializer):
             'incorrect_type': 'El reporte no es válido.',
         },
     )
-
 
 class ChatSerializer(serializers.ModelSerializer):
     report = serializers.SerializerMethodField()
@@ -67,7 +65,6 @@ class ChatSerializer(serializers.ModelSerializer):
             'created_at': obj.last_message_at,
             'is_mine': obj.last_message_sender_id == self._usuario().pk,
         }
-
 
 class ChatMessageSerializer(serializers.ModelSerializer):
     is_mine = serializers.SerializerMethodField()

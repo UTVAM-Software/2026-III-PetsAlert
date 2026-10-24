@@ -2,7 +2,6 @@ from django.contrib import admin
 
 from .models import PetReport
 
-
 @admin.register(PetReport)
 class PetReportAdmin(admin.ModelAdmin):
     list_display = ('id', 'status', 'species', 'last_seen_location', 'user', 'is_active', 'is_resolved', 'created_at')

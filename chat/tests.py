@@ -10,12 +10,10 @@ from .models import Chat, ChatMessage
 
 CLAVE = 'Clave#2026x'
 
-
 def crear_usuario(email, nombre='Usuario', **extra):
     return Usuario.objects.create_user(
         email=email, password=CLAVE, nombre=nombre, email_verificado=True, **extra
     )
-
 
 def crear_reporte(usuario, **extra):
     datos = {
@@ -27,12 +25,11 @@ def crear_reporte(usuario, **extra):
     datos.update(extra)
     return PetReport.objects.create(user=usuario, **datos)
 
-
 class ChatApiTests(APITestCase):
     def setUp(self):
-        self.ana = crear_usuario('ana@example.com', nombre='Ana')      # dueña del reporte
-        self.luis = crear_usuario('luis@example.com', nombre='Luis')    # interesado
-        self.eva = crear_usuario('eva@example.com', nombre='Eva')       # ajena a la conversación
+        self.ana = crear_usuario('ana@example.com', nombre='Ana')
+        self.luis = crear_usuario('luis@example.com', nombre='Luis')
+        self.eva = crear_usuario('eva@example.com', nombre='Eva')
         self.reporte = crear_reporte(self.ana)
 
     def abrir_chat(self, usuario=None, reporte=None):
@@ -40,8 +37,6 @@ class ChatApiTests(APITestCase):
         return self.client.post(
             reverse('chat-list'), {'report': (reporte or self.reporte).id}, format='json'
         )
-
-    # --- Abrir un chat ------------------------------------------------------
 
     def test_abrir_chat_crea_la_conversacion_con_el_dueno_del_reporte(self):
         respuesta = self.abrir_chat()
@@ -101,8 +96,6 @@ class ChatApiTests(APITestCase):
         with self.assertRaises(IntegrityError), transaction.atomic():
             Chat.objects.create(report=self.reporte, owner=self.ana, interested=self.ana)
 
-    # --- Mensajes -----------------------------------------------------------
-
     def test_enviar_y_leer_mensajes(self):
         chat_id = self.abrir_chat().data['id']
         url = reverse('chat-messages', args=[chat_id])
@@ -112,7 +105,6 @@ class ChatApiTests(APITestCase):
         self.assertEqual(enviado.data['content'], 'Hola, vi a tu perro')
         self.assertTrue(enviado.data['is_mine'])
 
-        # La dueña responde y ve los dos mensajes.
         self.client.force_authenticate(self.ana)
         self.client.post(url, {'content': '¿Dónde?'}, format='json')
 
@@ -156,7 +148,6 @@ class ChatApiTests(APITestCase):
         url = reverse('chat-messages', args=[chat_id])
         self.client.post(url, {'content': 'Hola'}, format='json')
 
-        # Antes de que la dueña abra el chat, tiene 1 mensaje sin leer.
         self.client.force_authenticate(self.ana)
         lista = self.client.get(reverse('chat-list'))
         self.assertEqual(lista.data[0]['unread_count'], 1)
@@ -167,14 +158,12 @@ class ChatApiTests(APITestCase):
         self.assertEqual(lista.data[0]['unread_count'], 0)
         self.assertTrue(ChatMessage.objects.get().is_read)
 
-    # --- Lista de chats -----------------------------------------------------
-
     def test_la_lista_solo_muestra_mis_chats_con_el_ultimo_mensaje(self):
         chat_id = self.abrir_chat().data['id']
         self.client.post(reverse('chat-messages', args=[chat_id]), {'content': 'Hola'}, format='json')
 
         otro_reporte = crear_reporte(self.eva)
-        self.abrir_chat(usuario=self.ana, reporte=otro_reporte)  # chat entre Ana y Eva
+        self.abrir_chat(usuario=self.ana, reporte=otro_reporte)
 
         self.client.force_authenticate(self.luis)
         lista = self.client.get(reverse('chat-list'))
@@ -197,7 +186,6 @@ class ChatApiTests(APITestCase):
 
         lista = self.client.get(reverse('chat-list'))
         self.assertEqual([c['id'] for c in lista.data], [viejo, reciente])
-
 
 class PantallasChatTests(TestCase):
     def setUp(self):

@@ -4,7 +4,6 @@ from django.db import DEFAULT_DB_ALIAS
 
 from .catalogo import GRUPOS_SISTEMA
 
-
 def crear_grupos_base(sender=None, **kwargs):
     apps = kwargs.get('apps', global_apps)
     using = kwargs.get('using', DEFAULT_DB_ALIAS)

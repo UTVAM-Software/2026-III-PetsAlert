@@ -186,7 +186,6 @@
             image.src = src;
         }
 
-        // Reduce la foto (máx. 1280 px, JPEG) antes de subirla para que pese poco.
         function comprimirImagen(file) {
             return new Promise((resolve, reject) => {
                 const url = URL.createObjectURL(file);

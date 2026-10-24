@@ -19,18 +19,15 @@ from .models import PetReport
 MEDIA_TEMPORAL = tempfile.mkdtemp(prefix='petsalert_tests_')
 CLAVE = 'Clave#2026x'
 
-
 def crear_usuario(email, nombre='Usuario', **extra):
     return Usuario.objects.create_user(
         email=email, password=CLAVE, nombre=nombre, email_verificado=True, **extra
     )
 
-
 def foto(nombre='foto.jpg'):
     buffer = BytesIO()
     Image.new('RGB', (40, 40), 'orange').save(buffer, format='JPEG')
     return SimpleUploadedFile(nombre, buffer.getvalue(), content_type='image/jpeg')
-
 
 def crear_reporte(usuario, **extra):
     datos = {
@@ -43,7 +40,6 @@ def crear_reporte(usuario, **extra):
     datos.update(extra)
     return PetReport.objects.create(user=usuario, **datos)
 
-
 def datos_validos(**extra):
     datos = {
         'status': 'ENCONTRADO',
@@ -55,7 +51,6 @@ def datos_validos(**extra):
     datos.update(extra)
     return datos
 
-
 @override_settings(MEDIA_ROOT=MEDIA_TEMPORAL)
 class ReportesApiTests(APITestCase):
     @classmethod
@@ -66,8 +61,6 @@ class ReportesApiTests(APITestCase):
     def setUp(self):
         self.ana = crear_usuario('ana@example.com', nombre='Ana')
         self.luis = crear_usuario('luis@example.com', nombre='Luis')
-
-    # --- Lectura -----------------------------------------------------------
 
     def test_lista_es_publica_y_solo_muestra_reportes_activos_sin_resolver(self):
         visible = crear_reporte(self.ana)
@@ -125,8 +118,6 @@ class ReportesApiTests(APITestCase):
         respuesta = self.client.get(reverse('report-mine'))
         self.assertIn(respuesta.status_code, (401, 403))
 
-    # --- Crear -------------------------------------------------------------
-
     def test_crear_requiere_sesion(self):
         respuesta = self.client.post(reverse('report-list'), datos_validos(), format='multipart')
         self.assertIn(respuesta.status_code, (401, 403))
@@ -176,8 +167,6 @@ class ReportesApiTests(APITestCase):
 
         self.assertEqual(respuesta.status_code, 403)
         self.assertEqual(PetReport.objects.count(), 0)
-
-    # --- Editar ------------------------------------------------------------
 
     def test_el_dueno_edita_su_reporte(self):
         reporte = crear_reporte(self.ana)
@@ -249,8 +238,6 @@ class ReportesApiTests(APITestCase):
         self.assertFalse(os.path.exists(ruta_anterior))
         self.assertTrue(os.path.exists(reporte.image.path))
 
-    # --- Eliminar ----------------------------------------------------------
-
     def test_el_dueno_elimina_su_reporte_y_se_borra_la_foto(self):
         reporte = crear_reporte(self.ana)
         ruta = reporte.image.path
@@ -270,7 +257,6 @@ class ReportesApiTests(APITestCase):
 
         self.assertEqual(respuesta.status_code, 403)
         self.assertTrue(PetReport.objects.filter(pk=reporte.id).exists())
-
 
 @override_settings(MEDIA_ROOT=MEDIA_TEMPORAL)
 class PantallasReportesTests(TestCase):

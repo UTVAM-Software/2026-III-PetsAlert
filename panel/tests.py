@@ -9,7 +9,6 @@ from feed.models import PetReport
 
 CLAVE = 'Clave#2026x'
 
-
 def crear_usuario(email, nombre='Persona', grupo=None, **extra):
     usuario = Usuario.objects.create_user(
         email=email, password=CLAVE, nombre=nombre, email_verificado=True, **extra
@@ -17,7 +16,6 @@ def crear_usuario(email, nombre='Persona', grupo=None, **extra):
     if grupo is not None:
         usuario.groups.set([Group.objects.get(name=grupo)])
     return usuario
-
 
 class PanelBase(TestCase):
     def setUp(self):
@@ -55,7 +53,6 @@ class PanelBase(TestCase):
                 reverse(f'panel:{slug}_delete', args=[pk]),
             ]
         return urls
-
 
 class ControlDeAccesoPanelTests(PanelBase):
     def test_sin_sesion_redirige_al_login_en_todas_las_pantallas(self):
@@ -156,7 +153,6 @@ class ControlDeAccesoPanelTests(PanelBase):
         self.ana.refresh_from_db()
         self.assertFalse(self.ana.is_superuser)
         self.assertFalse(self.ana.is_staff)
-
 
 class CrudPanelTests(PanelBase):
     def setUp(self):

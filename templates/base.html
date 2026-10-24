@@ -8,7 +8,6 @@
     <title>{% block title %}Pets Alert{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
 
-
     {% block extra_head %}{% endblock %}
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined">
 </head>
@@ -50,7 +49,6 @@
     </nav>
     {% endblock %}
 
-
     <div id="flash-message" class="flash-message is-hidden" role="status" aria-live="polite"></div>
 
     {% if messages %}
@@ -69,8 +67,6 @@
                 return;
             }
 
-            // Mensajes de Django (messages.success, messages.error, ...) o el que deja
-            // una pantalla en sessionStorage antes de redirigir (por ejemplo, al publicar un reporte).
             const djangoMessage = document.querySelector('#django-messages li');
             const message = djangoMessage
                 ? djangoMessage.textContent.trim()

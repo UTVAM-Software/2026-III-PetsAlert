@@ -6,12 +6,10 @@ from auth_app.models import Usuario
 
 CLAVE = 'Clave#2026x'
 
-
 def crear_usuario(email='ana@example.com', nombre='Ana Pérez', **extra):
     return Usuario.objects.create_user(
         email=email, password=CLAVE, nombre=nombre, email_verificado=True, **extra
     )
-
 
 class PerfilApiTests(APITestCase):
     def setUp(self):
@@ -84,7 +82,6 @@ class PerfilApiTests(APITestCase):
         self.assertEqual(respuesta.status_code, 200)
         self.ana.refresh_from_db()
         self.assertEqual(self.ana.telefono, '')
-
 
 class PantallasPerfilTests(TestCase):
     def setUp(self):

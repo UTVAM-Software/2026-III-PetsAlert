@@ -4,7 +4,6 @@ from . import views
 
 app_name = 'panel'
 
-
 def rutas(slug, prefijo, lista, detalle, crear, editar, eliminar):
     return [
         path(f'{prefijo}/', lista.as_view(), name=f'{slug}_list'),
@@ -13,7 +12,6 @@ def rutas(slug, prefijo, lista, detalle, crear, editar, eliminar):
         path(f'{prefijo}/<int:pk>/editar/', editar.as_view(), name=f'{slug}_update'),
         path(f'{prefijo}/<int:pk>/eliminar/', eliminar.as_view(), name=f'{slug}_delete'),
     ]
-
 
 urlpatterns = [
     path('', views.PanelIndex.as_view(), name='index'),

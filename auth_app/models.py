@@ -4,7 +4,6 @@ from django.db import models
 
 from .catalogo import GRUPO_ADMINISTRADOR, GRUPO_BASICO
 
-
 class UsuarioManager(BaseUserManager):
     def get_by_natural_key(self, email):
         return self.get(email__iexact=email.strip())
@@ -40,7 +39,6 @@ class UsuarioManager(BaseUserManager):
             usuario.groups.set([grupo])
 
         return usuario
-
 
 class Usuario(AbstractBaseUser, PermissionsMixin):
     nombre = models.CharField(max_length=150)

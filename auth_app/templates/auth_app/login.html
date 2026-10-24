@@ -103,7 +103,6 @@
             button.innerHTML = '<span class="login-spinner"></span>';
         });
 
-        // Si el usuario regresa con el botón "atrás", se restaura el botón.
         window.addEventListener('pageshow', event => {
             if (event.persisted) {
                 button.disabled = false;

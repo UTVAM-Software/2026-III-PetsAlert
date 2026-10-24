@@ -4,7 +4,6 @@ from auth_app.catalogo import (
     PERMISO_MODERAR,
 )
 
-
 def puede_ver(usuario, reporte):
     if reporte.is_active:
         return True
@@ -17,7 +16,6 @@ def puede_ver(usuario, reporte):
         )
     )
 
-
 def puede_editar(usuario, reporte):
     if not usuario.is_authenticated:
         return False
@@ -26,7 +24,6 @@ def puede_editar(usuario, reporte):
         return True
 
     return reporte.user_id == usuario.pk and usuario.has_perm(PERMISO_EDITAR_REPORTE)
-
 
 def puede_eliminar(usuario, reporte):
     if not usuario.is_authenticated:

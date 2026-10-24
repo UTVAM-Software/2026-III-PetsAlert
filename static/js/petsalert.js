@@ -1,12 +1,4 @@
-/*
- * Utilidades compartidas por las pantallas de Pets Alert.
- *
- *   PetsAlert.api(url, { method, body, formData })  -> llama a la API de Django y devuelve el JSON
- *   PetsAlert.escaparHtml(texto)                     -> escapa texto antes de ponerlo en innerHTML
- *
- * Las llamadas usan la sesión del usuario (cookies) y envían el token CSRF en las peticiones
- * que modifican datos.
- */
+
 (function () {
     function leerCookie(nombre) {
         const partes = document.cookie ? document.cookie.split(';') : [];
@@ -62,7 +54,7 @@
         }
 
         if (formData) {
-            // El navegador pone solo el Content-Type (con el boundary) de los formularios con archivos.
+
             opciones.body = formData;
         } else if (body !== null) {
             headers['Content-Type'] = 'application/json';

@@ -19,17 +19,11 @@ from .serializers import (
     CrearChatSerializer,
 )
 
-
-# ==========================================
-# 1. Pantallas HTML (los datos los carga el JS desde la API)
-# ==========================================
-
 @login_required
 @permission_required(PERMISO_CHAT, raise_exception=True)
 @ensure_csrf_cookie
 def chat_list_screen(request):
     return render(request, 'chat/chat_list_screen.html')
-
 
 @login_required
 @permission_required(PERMISO_CHAT, raise_exception=True)
@@ -48,11 +42,6 @@ def chat_room_screen(request, chat_id):
         'chat/chat_room_screen.html',
         {'chat': chat, 'otro_usuario': chat.otro_participante(request.user)},
     )
-
-
-# ==========================================
-# 2. API de chats y mensajes
-# ==========================================
 
 class ChatViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     """
@@ -120,7 +109,7 @@ class ChatViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Gen
 
     @action(detail=True, methods=['get', 'post'], url_path='messages')
     def messages(self, request, pk=None):
-        # get_object() solo encuentra chats donde participa el usuario; en otro caso responde 404.
+
         chat = self.get_object()
         usuario = request.user
         contexto = {'request': request}
@@ -134,7 +123,6 @@ class ChatViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Gen
 
             mensajes = list(mensajes)
 
-            # Quien abre la conversación marca como leídos los mensajes de la otra persona.
             por_marcar = [m.id for m in mensajes if m.sender_id != usuario.pk and not m.is_read]
             if por_marcar:
                 ChatMessage.objects.filter(id__in=por_marcar).update(is_read=True)
@@ -145,7 +133,6 @@ class ChatViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.Gen
         serializer.is_valid(raise_exception=True)
         mensaje = serializer.save(chat=chat, sender=usuario)
 
-        # Sube el chat al inicio de la lista (updated_at se actualiza solo).
         chat.save(update_fields=['updated_at'])
 
         return Response(ChatMessageSerializer(mensaje, context=contexto).data, status=201)

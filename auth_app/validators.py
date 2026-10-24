@@ -1,6 +1,5 @@
 from django.core.exceptions import ValidationError
 
-
 class ContrasenaSegura:
     """Exige al menos una letra, un número y un símbolo (además del largo mínimo de Django)."""
 

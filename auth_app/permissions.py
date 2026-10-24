@@ -1,6 +1,5 @@
 from rest_framework.permissions import BasePermission
 
-
 def requiere_permiso(*permisos):
     class TienePermiso(BasePermission):
         message = 'No tienes permiso para realizar esta acción.'

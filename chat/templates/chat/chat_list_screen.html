@@ -126,14 +126,12 @@
                     return;
                 }
 
-                // Si ya había una lista en pantalla, se deja como está y se reintenta después.
                 if (!list.querySelector('.chat-tile')) {
                     mostrarError();
                 }
             }
         }
 
-        // Se actualiza cada 10 segundos mientras la pantalla está visible.
         setInterval(() => {
             if (document.visibilityState === 'visible') {
                 cargarChats();

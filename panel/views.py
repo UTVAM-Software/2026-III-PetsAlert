@@ -27,7 +27,6 @@ from .forms import (
     UsuarioForm,
 )
 
-
 def valor(objeto, accesor):
     if callable(accesor):
         return accesor(objeto)
@@ -39,10 +38,8 @@ def valor(objeto, accesor):
 
     return actual
 
-
 def lista_texto(elementos):
     return ', '.join(str(elemento) for elemento in elementos) or '—'
-
 
 class PanelAcceso(PermissionRequiredMixin):
     raise_exception = False
@@ -77,7 +74,6 @@ class PanelAcceso(PermissionRequiredMixin):
 
         return contexto
 
-
 class PanelList(PanelAcceso, ListView):
     template_name = 'panel/list.html'
     paginate_by = 20
@@ -109,7 +105,6 @@ class PanelList(PanelAcceso, ListView):
         ]
         return contexto
 
-
 class PanelDetail(PanelAcceso, DetailView):
     template_name = 'panel/detail.html'
 
@@ -121,13 +116,11 @@ class PanelDetail(PanelAcceso, DetailView):
         ]
         return contexto
 
-
 class PanelFormulario(PanelAcceso):
     template_name = 'panel/form.html'
 
     def get_success_url(self):
         return reverse(f'panel:{self.slug}_list')
-
 
 class PanelCreate(PanelFormulario, CreateView):
     def form_valid(self, form):
@@ -135,13 +128,11 @@ class PanelCreate(PanelFormulario, CreateView):
         messages.success(self.request, f'{self.titulo} creado correctamente.')
         return respuesta
 
-
 class PanelUpdate(PanelFormulario, UpdateView):
     def form_valid(self, form):
         respuesta = super().form_valid(form)
         messages.success(self.request, f'{self.titulo} actualizado correctamente.')
         return respuesta
-
 
 class PanelDelete(PanelAcceso, DeleteView):
     template_name = 'panel/confirm_delete.html'
@@ -168,7 +159,6 @@ class PanelDelete(PanelAcceso, DeleteView):
         respuesta = super().post(request, *args, **kwargs)
         messages.success(request, f'{self.titulo} eliminado correctamente.')
         return respuesta
-
 
 class PanelIndex(PermissionRequiredMixin, TemplateView):
     permission_required = PERMISO_PANEL
@@ -227,7 +217,6 @@ class UsuarioBase:
             consulta = consulta.filter(is_superuser=False)
         return consulta
 
-
 class UsuarioFormBase(UsuarioBase):
     form_class = UsuarioForm
 
@@ -236,22 +225,17 @@ class UsuarioFormBase(UsuarioBase):
         argumentos['actor'] = self.request.user
         return argumentos
 
-
 class UsuarioList(UsuarioBase, PanelList):
     permission_required = (PERMISO_PANEL, 'auth_app.view_usuario')
-
 
 class UsuarioDetail(UsuarioBase, PanelDetail):
     permission_required = (PERMISO_PANEL, 'auth_app.view_usuario')
 
-
 class UsuarioCreate(UsuarioFormBase, PanelCreate):
     permission_required = (PERMISO_PANEL, 'auth_app.add_usuario')
 
-
 class UsuarioUpdate(UsuarioFormBase, PanelUpdate):
     permission_required = (PERMISO_PANEL, 'auth_app.change_usuario')
-
 
 class UsuarioDelete(UsuarioBase, PanelDelete):
     permission_required = (PERMISO_PANEL, 'auth_app.delete_usuario')
@@ -260,7 +244,6 @@ class UsuarioDelete(UsuarioBase, PanelDelete):
         if objeto.pk == self.request.user.pk:
             return 'No puedes eliminar tu propia cuenta.'
         return None
-
 
 class GrupoBase:
     model = Group
@@ -279,24 +262,19 @@ class GrupoBase:
     ]
     campos_busqueda = ['name']
 
-
 class GrupoList(GrupoBase, PanelList):
     permission_required = (PERMISO_PANEL, 'auth.view_group')
 
-
 class GrupoDetail(GrupoBase, PanelDetail):
     permission_required = (PERMISO_PANEL, 'auth.view_group')
-
 
 class GrupoCreate(GrupoBase, PanelCreate):
     permission_required = (PERMISO_PANEL, 'auth.add_group')
     form_class = GrupoForm
 
-
 class GrupoUpdate(GrupoBase, PanelUpdate):
     permission_required = (PERMISO_PANEL, 'auth.change_group')
     form_class = GrupoForm
-
 
 class GrupoDelete(GrupoBase, PanelDelete):
     permission_required = (PERMISO_PANEL, 'auth.delete_group')
@@ -305,7 +283,6 @@ class GrupoDelete(GrupoBase, PanelDelete):
         if objeto.name in GRUPOS_SISTEMA:
             return 'Los grupos base del sistema no se pueden eliminar.'
         return None
-
 
 class PermisoBase:
     model = Permission
@@ -323,24 +300,19 @@ class PermisoBase:
     def get_queryset(self):
         return super().get_queryset().select_related('content_type')
 
-
 class PermisoList(PermisoBase, PanelList):
     permission_required = (PERMISO_PANEL, 'auth.view_permission')
 
-
 class PermisoDetail(PermisoBase, PanelDetail):
     permission_required = (PERMISO_PANEL, 'auth.view_permission')
-
 
 class PermisoCreate(PermisoBase, PanelCreate):
     permission_required = (PERMISO_PANEL, 'auth.add_permission')
     form_class = PermisoForm
 
-
 class PermisoUpdate(PermisoBase, PanelUpdate):
     permission_required = (PERMISO_PANEL, 'auth.change_permission')
     form_class = PermisoForm
-
 
 class PermisoDelete(PermisoBase, PanelDelete):
     permission_required = (PERMISO_PANEL, 'auth.delete_permission')
@@ -350,7 +322,6 @@ class PermisoDelete(PermisoBase, PanelDelete):
         if codigo in PERMISOS_PROTEGIDOS:
             return 'Este permiso lo usa la aplicación y no se puede eliminar.'
         return None
-
 
 class ReporteBase:
     model = PetReport
@@ -378,28 +349,22 @@ class ReporteBase:
     def get_queryset(self):
         return super().get_queryset().select_related('user')
 
-
 class ReporteList(ReporteBase, PanelList):
     permission_required = (PERMISO_PANEL, 'feed.view_petreport')
 
-
 class ReporteDetail(ReporteBase, PanelDetail):
     permission_required = (PERMISO_PANEL, 'feed.view_petreport')
-
 
 class ReporteCreate(ReporteBase, PanelCreate):
     permission_required = (PERMISO_PANEL, 'feed.add_petreport')
     form_class = ReporteForm
 
-
 class ReporteUpdate(ReporteBase, PanelUpdate):
     permission_required = (PERMISO_PANEL, 'feed.change_petreport')
     form_class = ReporteForm
 
-
 class ReporteDelete(ReporteBase, PanelDelete):
     permission_required = (PERMISO_PANEL, 'feed.delete_petreport')
-
 
 class ChatBase:
     model = Chat
@@ -418,28 +383,22 @@ class ChatBase:
     def get_queryset(self):
         return super().get_queryset().select_related('report', 'owner', 'interested')
 
-
 class ChatList(ChatBase, PanelList):
     permission_required = (PERMISO_PANEL, 'chat.view_chat')
 
-
 class ChatDetail(ChatBase, PanelDetail):
     permission_required = (PERMISO_PANEL, 'chat.view_chat')
-
 
 class ChatCreate(ChatBase, PanelCreate):
     permission_required = (PERMISO_PANEL, 'chat.add_chat')
     form_class = ChatForm
 
-
 class ChatUpdate(ChatBase, PanelUpdate):
     permission_required = (PERMISO_PANEL, 'chat.change_chat')
     form_class = ChatForm
 
-
 class ChatDelete(ChatBase, PanelDelete):
     permission_required = (PERMISO_PANEL, 'chat.delete_chat')
-
 
 class MensajeBase:
     model = ChatMessage
@@ -467,24 +426,19 @@ class MensajeBase:
     def get_queryset(self):
         return super().get_queryset().select_related('chat', 'sender')
 
-
 class MensajeList(MensajeBase, PanelList):
     permission_required = (PERMISO_PANEL, 'chat.view_chatmessage')
 
-
 class MensajeDetail(MensajeBase, PanelDetail):
     permission_required = (PERMISO_PANEL, 'chat.view_chatmessage')
-
 
 class MensajeCreate(MensajeBase, PanelCreate):
     permission_required = (PERMISO_PANEL, 'chat.add_chatmessage')
     form_class = MensajeForm
 
-
 class MensajeUpdate(MensajeBase, PanelUpdate):
     permission_required = (PERMISO_PANEL, 'chat.change_chatmessage')
     form_class = MensajeForm
-
 
 class MensajeDelete(MensajeBase, PanelDelete):
     permission_required = (PERMISO_PANEL, 'chat.delete_chatmessage')

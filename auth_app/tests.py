@@ -23,7 +23,6 @@ from .tokens import token_verificacion_email
 
 CLAVE = 'Clave#2026x'
 
-
 def crear_usuario(email='ana@example.com', verificado=True, **extra):
     return Usuario.objects.create_user(
         email=email,
@@ -32,7 +31,6 @@ def crear_usuario(email='ana@example.com', verificado=True, **extra):
         email_verificado=verificado,
         **extra,
     )
-
 
 class CatalogoInicialTests(TestCase):
     def test_se_crean_los_grupos_base(self):
@@ -48,7 +46,6 @@ class CatalogoInicialTests(TestCase):
         basico = Group.objects.get(name=GRUPO_BASICO)
         self.assertFalse(basico.permissions.filter(codename='acceder_panel').exists())
         self.assertTrue(basico.permissions.filter(codename='usar_chat').exists())
-
 
 class PermisosTests(TestCase):
     def test_usuario_nuevo_recibe_el_grupo_basico(self):
@@ -88,7 +85,6 @@ class PermisosTests(TestCase):
     def test_correo_se_guarda_en_minusculas(self):
         usuario = crear_usuario(email='Ana@Example.COM')
         self.assertEqual(usuario.email, 'ana@example.com')
-
 
 class RegistroTests(TestCase):
     datos = {
@@ -132,7 +128,6 @@ class RegistroTests(TestCase):
 
         self.assertEqual(respuesta.status_code, 200)
         self.assertEqual(Usuario.objects.filter(email='luis@example.com').count(), 1)
-
 
 class LoginTests(TestCase):
     def setUp(self):
@@ -197,7 +192,6 @@ class LoginTests(TestCase):
         self.client.post(reverse('logout'))
         self.assertNotIn(SESSION_KEY, self.client.session)
 
-
 class VerificacionEmailTests(TestCase):
     def _url(self, usuario, token=None):
         return reverse(
@@ -222,7 +216,7 @@ class VerificacionEmailTests(TestCase):
 
         usuario.refresh_from_db()
         self.assertTrue(usuario.email_verificado)
-        # Una vez verificado el correo, el mismo token ya no sirve.
+
         self.assertFalse(token_verificacion_email.check_token(usuario, token))
 
     def test_token_invalido_no_verifica(self):
@@ -245,7 +239,6 @@ class VerificacionEmailTests(TestCase):
         self.client.post(reverse('resend_verification'), {'email': 'nadie@example.com'})
         self.assertEqual(enviar.call_count, 1)
 
-
 class RecuperarContrasenaTests(TestCase):
     def setUp(self):
         cache.clear()
@@ -262,7 +255,6 @@ class RecuperarContrasenaTests(TestCase):
         uid = urlsafe_base64_encode(force_bytes(usuario.pk))
         token = default_token_generator.make_token(usuario)
 
-        # Django redirige el enlace del correo a una URL interna con el token en sesión.
         respuesta = self.client.get(
             reverse('password_reset_confirm', kwargs={'uidb64': uid, 'token': token}),
             follow=True,

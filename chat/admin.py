@@ -2,7 +2,6 @@ from django.contrib import admin
 
 from .models import Chat, ChatMessage
 
-
 class ChatMessageInline(admin.TabularInline):
     model = ChatMessage
     extra = 0
@@ -11,7 +10,6 @@ class ChatMessageInline(admin.TabularInline):
 
     def has_add_permission(self, request, obj=None):
         return False
-
 
 @admin.register(Chat)
 class ChatAdmin(admin.ModelAdmin):

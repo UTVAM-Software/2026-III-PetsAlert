@@ -17,15 +17,9 @@ from .models import PetReport
 from .permisos import puede_editar, puede_eliminar, puede_ver
 from .serializers import PetReportSerializer
 
-
-# ==========================================
-# 1. Pantallas HTML (los datos los carga el JS desde la API)
-# ==========================================
-
 @login_required
 def feed_screen(request):
     return render(request, 'feed/feed_screen.html')
-
 
 @login_required
 @ensure_csrf_cookie
@@ -40,7 +34,6 @@ def add_report_screen(request, pk=None):
 
     return render(request, 'feed/add_report_screen.html', {'reporte_id': pk})
 
-
 @login_required
 @ensure_csrf_cookie
 def pet_detail_screen(request, pk):
@@ -50,11 +43,6 @@ def pet_detail_screen(request, pk):
         raise Http404
 
     return render(request, 'feed/pet_detail_screen.html', {'reporte_id': pk})
-
-
-# ==========================================
-# 2. API de reportes
-# ==========================================
 
 class PermisosReporte(BasePermission):
     """
@@ -91,19 +79,17 @@ class PermisosReporte(BasePermission):
 
         return False
 
-
 class PaginacionReportes(PageNumberPagination):
     page_size = 24
     page_size_query_param = 'page_size'
     max_page_size = 100
-
 
 class PetReportViewSet(viewsets.ModelViewSet):
     serializer_class = PetReportSerializer
     permission_classes = [PermisosReporte]
     pagination_class = PaginacionReportes
     parser_classes = [MultiPartParser, FormParser, JSONParser]
-    # La edición siempre es parcial (PATCH).
+
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     def get_queryset(self):
@@ -112,7 +98,6 @@ class PetReportViewSet(viewsets.ModelViewSet):
         if self.action != 'list':
             return reportes
 
-        # El feed solo muestra reportes visibles y sin resolver.
         reportes = reportes.filter(is_active=True, is_resolved=False)
 
         parametros = self.request.query_params

@@ -9,12 +9,10 @@ from auth_app.models import Usuario
 from chat.models import Chat, ChatMessage
 from feed.models import PetReport
 
-
 def permisos_ordenados():
     return Permission.objects.select_related('content_type').order_by(
         'content_type__app_label', 'content_type__model', 'codename'
     )
-
 
 class UsuarioForm(forms.ModelForm):
     password1 = forms.CharField(
@@ -128,7 +126,6 @@ class UsuarioForm(forms.ModelForm):
 
         return usuario
 
-
 class GrupoForm(forms.ModelForm):
     permissions = forms.ModelMultipleChoiceField(
         label='Permisos',
@@ -154,7 +151,6 @@ class GrupoForm(forms.ModelForm):
 
         return nombre
 
-
 class PermisoForm(forms.ModelForm):
     content_type = forms.ModelChoiceField(
         label='Modelo',
@@ -165,7 +161,6 @@ class PermisoForm(forms.ModelForm):
         model = Permission
         fields = ['name', 'codename', 'content_type']
         labels = {'name': 'Nombre', 'codename': 'Código'}
-
 
 class ReporteForm(forms.ModelForm):
     class Meta:
@@ -197,7 +192,6 @@ class ReporteForm(forms.ModelForm):
             'is_resolved': 'Resuelto',
         }
 
-
 class ChatForm(forms.ModelForm):
     class Meta:
         model = Chat
@@ -217,7 +211,6 @@ class ChatForm(forms.ModelForm):
             self.add_error('owner', 'El dueño del chat debe ser el autor del reporte.')
 
         return cleaned
-
 
 class MensajeForm(forms.ModelForm):
     class Meta:

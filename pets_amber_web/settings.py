@@ -15,41 +15,27 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / '.env')
 
-
 def _env_bool(nombre, por_defecto):
     valor = os.getenv(nombre)
     if valor is None:
         return por_defecto
     return valor.strip().lower() in ('1', 'true', 'yes', 'si', 'sí')
 
-
 def _env_lista(nombre):
     return [item.strip() for item in os.getenv(nombre, '').split(',') if item.strip()]
-
-
-# ---------------------------------------------------------------------------
-# Seguridad
-# ---------------------------------------------------------------------------
 
 DEBUG = _env_bool('DEBUG', True)
 
 SECRET_KEY = os.getenv('SECRET_KEY')
 if not SECRET_KEY:
     if DEBUG:
-        # Solo para desarrollo local. En producción define SECRET_KEY en el .env.
+
         SECRET_KEY = 'django-insecure-solo-para-desarrollo-local'
     else:
         raise ImproperlyConfigured('Define SECRET_KEY en el archivo .env.')
 
-# Con DEBUG=True Django ya permite localhost. Para probar desde el celular en
-# tu red local agrega la IP de tu equipo en el .env (ALLOWED_HOSTS=localhost,192.168.1.50).
 ALLOWED_HOSTS = _env_lista('ALLOWED_HOSTS')
 CSRF_TRUSTED_ORIGINS = _env_lista('CSRF_TRUSTED_ORIGINS')
-
-
-# ---------------------------------------------------------------------------
-# Aplicaciones
-# ---------------------------------------------------------------------------
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -95,11 +81,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'pets_amber_web.wsgi.application'
 
-
-# ---------------------------------------------------------------------------
-# Base de datos (PostgreSQL)
-# ---------------------------------------------------------------------------
-
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -113,12 +94,6 @@ DATABASES = {
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-
-# ---------------------------------------------------------------------------
-# Usuarios y autenticación
-# ---------------------------------------------------------------------------
-
-# Modelo de usuario propio (login con correo). Debe definirse antes del primer migrate.
 AUTH_USER_MODEL = 'auth_app.Usuario'
 
 LOGIN_URL = 'login'
@@ -130,11 +105,10 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
-    # Exige al menos una letra, un número y un símbolo.
+
     {'NAME': 'auth_app.validators.ContrasenaSegura'},
 ]
 
-# Los enlaces de verificación de correo y de recuperación de contraseña duran 3 días.
 PASSWORD_RESET_TIMEOUT = 60 * 60 * 24 * 3
 
 REST_FRAMEWORK = {
@@ -146,15 +120,6 @@ REST_FRAMEWORK = {
     ],
 }
 
-
-# ---------------------------------------------------------------------------
-# Correo
-# ---------------------------------------------------------------------------
-
-# MAILERS es el ajuste de correo nuevo de Django 6.1 (reemplaza a EMAIL_BACKEND).
-# Por defecto los correos se imprimen en la terminal donde corre runserver, ahí
-# aparecen los enlaces de verificación y de recuperación de contraseña.
-# Para enviar correos reales define EMAIL_HOST y las demás variables EMAIL_* en el .env.
 if os.getenv('EMAIL_HOST'):
     MAILERS = {
         'default': {
@@ -177,20 +142,10 @@ else:
 
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Pets Alert <no-reply@petsalert.local>')
 
-
-# ---------------------------------------------------------------------------
-# Internacionalización
-# ---------------------------------------------------------------------------
-
 LANGUAGE_CODE = 'es-mx'
 TIME_ZONE = 'America/Mexico_City'
 USE_I18N = True
 USE_TZ = True
-
-
-# ---------------------------------------------------------------------------
-# Archivos estáticos y media
-# ---------------------------------------------------------------------------
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
