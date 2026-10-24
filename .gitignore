@@ -9,3 +9,6 @@ __pycache__/
 .env
 
 venv/
+
+# Archivos que suben los usuarios
+media/

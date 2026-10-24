@@ -1,0 +1,21 @@
+{% extends 'panel/base_panel.html' %}
+
+{% block title %}Inicio{% endblock %}
+
+{% block contenido %}
+<div class="encabezado">
+    <h1>Panel de administración</h1>
+</div>
+
+<div class="tarjetas">
+    {% for modulo in modulos %}
+    <a class="tarjeta" href="{{ modulo.url }}">
+        <span class="tarjeta-icono"><span class="material-symbols-outlined">{{ modulo.icono }}</span></span>
+        <strong>{{ modulo.total }}</strong>
+        <span class="tarjeta-titulo">{{ modulo.titulo }}</span>
+    </a>
+    {% empty %}
+    <p>No tienes permisos para gestionar ningún módulo.</p>
+    {% endfor %}
+</div>
+{% endblock %}

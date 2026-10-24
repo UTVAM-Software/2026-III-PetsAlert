@@ -27,130 +27,132 @@
 {% endblock %}
 
 {% block scripts %}
-<script type="module">
-    import {
-        collection,
-        query,
-        where,
-        orderBy,
-        onSnapshot,
-        doc,
-        getDoc
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+<script>
+    (function () {
+        const { api, escaparHtml } = window.PetsAlert;
 
-    import {
-        onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        const API_CHATS = "{% url 'chat-list' %}";
+        const SALA_URL = "{% url 'chat_room_screen' chat_id=0 %}";
+        const INTERVALO_MS = 10000;
 
-    const db = window.firebaseDb;
-    const auth = window.firebaseAuth;
-    const list = document.getElementById('chat-list');
-    let unsubscribeChats = null;
+        const list = document.getElementById('chat-list');
 
-    function escaparHtml(texto) {
-        return String(texto ?? '')
-            .replaceAll('&', '&amp;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;')
-            .replaceAll('"', '&quot;')
-            .replaceAll("'", '&#039;');
-    }
-
-    function formatearHora(timestamp) {
-        if (!timestamp) return '';
-
-        try {
-            const date = timestamp.toDate();
-            return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-        } catch {
-            return '';
-        }
-    }
-
-    function mostrarVacio() {
-        list.innerHTML = `
-            <div class="chat-empty">
-                Aún no tienes conversaciones.
-            </div>
-        `;
-    }
-
-    function mostrarError() {
-        list.innerHTML = `
-            <div class="chat-error">
-                Error al cargar los mensajes.
-            </div>
-        `;
-    }
-
-    function renderizarChats(chats, currentUserId) {
-        if (!chats.length) {
-            mostrarVacio();
-            return;
-        }
-
-        list.innerHTML = '';
-
-        chats.forEach(chatDoc => {
-            const data = chatDoc.data() || {};
-            const participants = Array.isArray(data.participants) ? data.participants : [];
-            const otherUserId = participants.find(id => id !== currentUserId) || '';
-
-            if (!otherUserId) return;
-
-            const tile = document.createElement('a');
-            tile.className = 'chat-tile';
-            tile.href = `/chat/room/${encodeURIComponent(otherUserId)}/`;
-            tile.innerHTML = `
-                <div class="chat-avatar">U</div>
-                <div class="chat-tile-body">
-                    <div class="chat-tile-title">Cargando...</div>
-                    <div class="chat-tile-subtitle">${escaparHtml(data.lastMessage || '')}</div>
-                </div>
-                <div class="chat-tile-time">${formatearHora(data.lastMessageTime)}</div>
-            `;
-
-            list.appendChild(tile);
-
-            getDoc(doc(db, 'usuarios', otherUserId))
-                .then(userSnapshot => {
-                    const userData = userSnapshot.exists() ? (userSnapshot.data() || {}) : {};
-                    const name = userData.nombre || 'Usuario Desconocido';
-                    tile.querySelector('.chat-avatar').textContent = name ? name[0].toUpperCase() : 'U';
-                    tile.querySelector('.chat-tile-title').textContent = name;
-                })
-                .catch(() => {
-                    tile.querySelector('.chat-avatar').textContent = 'U';
-                    tile.querySelector('.chat-tile-title').textContent = 'Error al cargar';
-                });
-        });
-    }
-
-    onAuthStateChanged(auth, user => {
-        if (!user) {
-            window.location.href = "{% url 'login' %}";
-            return;
-        }
-
-        const chatsQuery = query(
-            collection(db, 'chats'),
-            where('participants', 'array-contains', user.uid),
-            orderBy('lastMessageTime', 'desc')
-        );
-
-        unsubscribeChats?.();
-
-        unsubscribeChats = onSnapshot(
-            chatsQuery,
-            snapshot => {
-                const chats = snapshot.docs;
-                renderizarChats(chats, user.uid);
-            },
-            error => {
-                console.error(error);
-                mostrarError();
+        function formatearFecha(iso) {
+            if (!iso) {
+                return '';
             }
-        );
-    });
+
+            const fecha = new Date(iso);
+
+            if (Number.isNaN(fecha.getTime())) {
+                return '';
+            }
+
+            const hoy = new Date();
+            const esHoy = fecha.toDateString() === hoy.toDateString();
+
+            return esHoy
+                ? fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+                : fecha.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' });
+        }
+
+        function mostrarVacio() {
+            list.innerHTML = `
+                <div class="chat-empty">
+                    Aún no tienes conversaciones.
+                </div>
+            `;
+        }
+
+        function mostrarError() {
+            list.innerHTML = `
+                <div class="chat-error">
+                    Error al cargar los mensajes.
+                </div>
+            `;
+        }
+
+        function renderizarChats(chats) {
+            if (chats.length === 0) {
+                mostrarVacio();
+                return;
+            }
+
+            list.innerHTML = '';
+
+            chats.forEach(chat => {
+                const nombre = chat.other_user.nombre || 'Usuario';
+                const reporte = chat.report;
+                const contexto = `${reporte.species_display} · ${reporte.last_seen_location}`;
+
+                let ultimo = 'Aún no hay mensajes';
+
+                if (chat.last_message) {
+                    ultimo = (chat.last_message.is_mine ? 'Tú: ' : '') + chat.last_message.content;
+                }
+
+                const noLeidos = chat.unread_count > 0
+                    ? `<span style="display:inline-block;min-width:20px;padding:2px 6px;border-radius:10px;background:var(--primary-color);color:#fff;font-size:12px;font-weight:700;text-align:center;">${chat.unread_count}</span>`
+                    : '';
+
+                const tile = document.createElement('a');
+                tile.className = 'chat-tile';
+                tile.href = SALA_URL.replace('/0/', `/${chat.id}/`);
+                tile.innerHTML = `
+                    <div class="chat-avatar">${escaparHtml(nombre.charAt(0).toUpperCase())}</div>
+                    <div class="chat-tile-body">
+                        <div class="chat-tile-title">${escaparHtml(nombre)}</div>
+                        <div class="chat-tile-subtitle" style="font-size:12px;opacity:0.7;">${escaparHtml(contexto)}</div>
+                        <div class="chat-tile-subtitle">${escaparHtml(ultimo)}</div>
+                    </div>
+                    <div class="chat-tile-time">
+                        ${escaparHtml(formatearFecha(chat.last_message ? chat.last_message.created_at : chat.created_at))}
+                        <div>${noLeidos}</div>
+                    </div>
+                `;
+
+                list.appendChild(tile);
+            });
+        }
+
+        async function cargarChats() {
+            try {
+                renderizarChats(await api(API_CHATS));
+            } catch (error) {
+                console.error(error);
+
+                if (error.status === 401 || error.status === 403) {
+                    window.location.href = "{% url 'login' %}?next=" + encodeURIComponent(window.location.pathname);
+                    return;
+                }
+
+                // Si ya había una lista en pantalla, se deja como está y se reintenta después.
+                if (!list.querySelector('.chat-tile')) {
+                    mostrarError();
+                }
+            }
+        }
+
+        // Se actualiza cada 10 segundos mientras la pantalla está visible.
+        setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                cargarChats();
+            }
+        }, INTERVALO_MS);
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                cargarChats();
+            }
+        });
+
+        window.addEventListener('pageshow', event => {
+            if (event.persisted) {
+                cargarChats();
+            }
+        });
+
+        cargarChats();
+    })();
 </script>
 {% endblock %}

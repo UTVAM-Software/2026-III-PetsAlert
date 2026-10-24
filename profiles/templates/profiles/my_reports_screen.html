@@ -38,162 +38,194 @@
 {% endblock %}
 
 {% block scripts %}
-<script type="module">
-    import {
-        collection,
-        query,
-        where,
-        orderBy,
-        onSnapshot,
-        doc,
-        deleteDoc
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+<script>
+    (function () {
+        const { api, escaparHtml } = window.PetsAlert;
 
-    import {
-        onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        const API_REPORTES = "{% url 'report-list' %}";
+        const API_MIS_REPORTES = "{% url 'report-mine' %}";
+        const EDITAR_URL = "{% url 'edit_report_screen' pk=0 %}";
+        const DETALLE_URL = "{% url 'pet_detail_screen' pk=0 %}";
 
-    const db = window.firebaseDb;
-    const auth = window.firebaseAuth;
-    const container = document.getElementById('reports-container');
+        const container = document.getElementById('reports-container');
 
-    const deleteModal = document.getElementById('delete-modal');
-    const deleteCancel = document.getElementById('delete-cancel');
-    const deleteConfirm = document.getElementById('delete-confirm');
-    let reportToDelete = null;
+        const deleteModal = document.getElementById('delete-modal');
+        const deleteCancel = document.getElementById('delete-cancel');
+        const deleteConfirm = document.getElementById('delete-confirm');
+        let reportToDelete = null;
 
-    function escaparHtml(texto) {
-        return String(texto ?? '')
-            .replaceAll('&', '&amp;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;')
-            .replaceAll('"', '&quot;')
-            .replaceAll("'", '&#039;');
-    }
-
-    function obtenerImagenSrc(base64) {
-        if (!base64 || typeof base64 !== 'string') return null;
-        return base64.startsWith('data:')
-            ? base64
-            : `data:image/jpeg;base64,${base64}`;
-    }
-
-    function mostrarEstado(texto, clase = '') {
-        container.innerHTML = `<div class="my-reports-message ${clase}">${escaparHtml(texto)}</div>`;
-    }
-
-    function renderizarReportes(snapshot) {
-        if (snapshot.empty) {
-            mostrarEstado('No has creado ningún reporte aún.');
-            return;
+        function mostrarEstado(texto, clase = '') {
+            container.innerHTML = `<div class="my-reports-message ${clase}">${escaparHtml(texto)}</div>`;
         }
 
-        container.innerHTML = '';
-
-        snapshot.docs.forEach(reportDoc => {
-            const data = reportDoc.data() || {};
-            const mascota = data.mascota || {};
-            const ubicacion = data.ubicacion || {};
-            const imageSrc = obtenerImagenSrc(mascota.fotoBase64);
-            const encontrada = data.tipoReporte === 'encontrada';
-
-            const card = document.createElement('article');
-            card.className = 'my-report-card';
-            card.innerHTML = `
-                <div class="my-report-main">
-                    <div class="my-report-image">
-                        ${imageSrc
-                            ? `<img src="${imageSrc}" alt="${escaparHtml(mascota.especie || 'Mascota')}">`
-                            : `<span class="material-symbols-outlined">pets</span>`
-                        }
-                    </div>
-                    <div class="my-report-info">
-                        <h2>${escaparHtml(mascota.especie || 'Desconocida')}</h2>
-                        <p>${escaparHtml(ubicacion.localidad || 'Sin ubicación')}</p>
-                    </div>
-                    <span class="my-report-status ${encontrada ? 'found' : 'lost'}">${encontrada ? 'ENCONTRADA' : 'BUSCADA'}</span>
-                </div>
-                <div class="my-report-actions">
-                    <a href="/feed/add/${encodeURIComponent(reportDoc.id)}/" class="my-report-edit">
-                        <span class="material-symbols-outlined">edit</span>
-                        <span>Editar</span>
-                    </a>
-                    <button type="button" class="my-report-delete" data-report-id="${escaparHtml(reportDoc.id)}">
-                        <span class="material-symbols-outlined">delete_outline</span>
-                        <span>Borrar</span>
-                    </button>
-                </div>
-            `;
-
-            const image = card.querySelector('img');
-            if (image) {
-                image.addEventListener('error', () => {
-                    image.replaceWith(Object.assign(document.createElement('span'), {
-                        className: 'material-symbols-outlined',
-                        textContent: 'pets'
-                    }));
-                });
+        function etiquetaEstado(reporte) {
+            if (reporte.is_resolved) {
+                return { texto: 'RESUELTO', clase: 'found' };
             }
 
-            card.querySelector('.my-report-delete').addEventListener('click', () => {
-                reportToDelete = reportDoc.id;
-                deleteModal.hidden = false;
+            return reporte.status === 'ENCONTRADO'
+                ? { texto: 'ENCONTRADO', clase: 'found' }
+                : { texto: 'SE BUSCA', clase: 'lost' };
+        }
+
+        function renderizarReportes(reportes) {
+            if (reportes.length === 0) {
+                mostrarEstado('No has creado ningún reporte aún.');
+                return;
+            }
+
+            container.innerHTML = '';
+
+            reportes.forEach(reporte => {
+                const etiqueta = etiquetaEstado(reporte);
+                const especie = reporte.species_display || 'Desconocida';
+
+                const card = document.createElement('article');
+                card.className = 'my-report-card';
+
+                card.innerHTML = `
+                    <div class="my-report-main">
+                        <div class="my-report-image">
+                            ${reporte.image
+                                ? `<img src="${escaparHtml(reporte.image)}" alt="${escaparHtml(especie)}">`
+                                : `<span class="material-symbols-outlined">pets</span>`
+                            }
+                        </div>
+                        <div class="my-report-info">
+                            <h2>${escaparHtml(especie)}</h2>
+                            <p>${escaparHtml(reporte.last_seen_location || 'Sin ubicación')}</p>
+                        </div>
+                        <span class="my-report-status ${etiqueta.clase}">${etiqueta.texto}</span>
+                    </div>
+                    <div class="my-report-actions">
+                        ${reporte.can_edit ? `
+                            <button type="button" class="my-report-edit" data-action="resolver">
+                                <span class="material-symbols-outlined">${reporte.is_resolved ? 'undo' : 'task_alt'}</span>
+                                <span>${reporte.is_resolved ? 'Reabrir' : 'Resuelto'}</span>
+                            </button>
+                            <a href="${EDITAR_URL.replace('/0/', `/${reporte.id}/`)}" class="my-report-edit">
+                                <span class="material-symbols-outlined">edit</span>
+                                <span>Editar</span>
+                            </a>
+                        ` : ''}
+                        ${reporte.can_delete ? `
+                            <button type="button" class="my-report-delete" data-action="borrar">
+                                <span class="material-symbols-outlined">delete_outline</span>
+                                <span>Borrar</span>
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+
+                const image = card.querySelector('img');
+
+                if (image) {
+                    image.addEventListener('error', () => {
+                        image.replaceWith(Object.assign(document.createElement('span'), {
+                            className: 'material-symbols-outlined',
+                            textContent: 'pets'
+                        }));
+                    });
+                }
+
+                // Tocar la parte superior de la tarjeta abre el detalle del reporte.
+                card.querySelector('.my-report-main').addEventListener('click', () => {
+                    window.location.href = DETALLE_URL.replace('/0/', `/${reporte.id}/`);
+                });
+
+                const botonResolver = card.querySelector('[data-action="resolver"]');
+
+                if (botonResolver) {
+                    botonResolver.addEventListener('click', () => cambiarResuelto(reporte, botonResolver));
+                }
+
+                const botonBorrar = card.querySelector('[data-action="borrar"]');
+
+                if (botonBorrar) {
+                    botonBorrar.addEventListener('click', () => {
+                        reportToDelete = reporte.id;
+                        deleteModal.hidden = false;
+                    });
+                }
+
+                container.appendChild(card);
             });
-
-            container.appendChild(card);
-        });
-    }
-
-    deleteCancel.addEventListener('click', () => {
-        reportToDelete = null;
-        deleteModal.hidden = true;
-    });
-
-    deleteModal.addEventListener('click', event => {
-        if (event.target === deleteModal) {
-            reportToDelete = null;
-            deleteModal.hidden = true;
-        }
-    });
-
-    deleteConfirm.addEventListener('click', async () => {
-        if (!reportToDelete) return;
-
-        const id = reportToDelete;
-        reportToDelete = null;
-        deleteModal.hidden = true;
-        deleteConfirm.disabled = true;
-
-        try {
-            await deleteDoc(doc(db, 'publicaciones', id));
-        } catch (error) {
-            console.error(error);
-            mostrarEstado('Error al eliminar', 'error');
-        } finally {
-            deleteConfirm.disabled = false;
-        }
-    });
-
-    onAuthStateChanged(auth, user => {
-        if (!user) {
-            window.location.href = "{% url 'login' %}";
-            return;
         }
 
-        const reportsQuery = query(
-            collection(db, 'publicaciones'),
-            where('userId', '==', user.uid),
-            orderBy('fechaPublicacion', 'desc')
-        );
-
-        onSnapshot(
-            reportsQuery,
-            snapshot => renderizarReportes(snapshot),
-            error => {
+        async function cargarReportes() {
+            try {
+                const reportes = await api(API_MIS_REPORTES);
+                renderizarReportes(reportes);
+            } catch (error) {
                 console.error(error);
+
+                if (error.status === 401 || error.status === 403) {
+                    window.location.href = "{% url 'login' %}?next=" + encodeURIComponent(window.location.pathname);
+                    return;
+                }
+
                 mostrarEstado('Error al cargar tus reportes.', 'error');
             }
-        );
-    });
+        }
+
+        async function cambiarResuelto(reporte, boton) {
+            boton.disabled = true;
+
+            try {
+                await api(`${API_REPORTES}${reporte.id}/`, {
+                    method: 'PATCH',
+                    body: { is_resolved: !reporte.is_resolved }
+                });
+
+                await cargarReportes();
+            } catch (error) {
+                console.error(error);
+                boton.disabled = false;
+                window.alert(error.message);
+            }
+        }
+
+        deleteCancel.addEventListener('click', () => {
+            reportToDelete = null;
+            deleteModal.hidden = true;
+        });
+
+        deleteModal.addEventListener('click', event => {
+            if (event.target === deleteModal) {
+                reportToDelete = null;
+                deleteModal.hidden = true;
+            }
+        });
+
+        deleteConfirm.addEventListener('click', async () => {
+            if (!reportToDelete) {
+                return;
+            }
+
+            const id = reportToDelete;
+
+            reportToDelete = null;
+            deleteModal.hidden = true;
+            deleteConfirm.disabled = true;
+
+            try {
+                await api(`${API_REPORTES}${id}/`, { method: 'DELETE' });
+                await cargarReportes();
+            } catch (error) {
+                console.error(error);
+                mostrarEstado(error.message || 'Error al eliminar', 'error');
+            } finally {
+                deleteConfirm.disabled = false;
+            }
+        });
+
+        window.addEventListener('pageshow', event => {
+            if (event.persisted) {
+                cargarReportes();
+            }
+        });
+
+        cargarReportes();
+    })();
 </script>
 {% endblock %}

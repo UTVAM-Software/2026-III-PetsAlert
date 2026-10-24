@@ -20,8 +20,15 @@
         <button type="button" id="chat-back-button" class="chat-room-back" aria-label="Regresar">
             <span class="material-symbols-outlined">arrow_back</span>
         </button>
-        <h1 id="chat-room-title">Contacto del reporte</h1>
-        <div class="chat-room-spacer"></div>
+        <h1 id="chat-room-title">{{ otro_usuario.nombre }}</h1>
+        <a
+            href="{% url 'pet_detail_screen' pk=chat.report_id %}"
+            class="chat-room-back"
+            aria-label="Ver reporte"
+            style="display: flex; align-items: center; justify-content: center; text-decoration: none;"
+        >
+            <span class="material-symbols-outlined">pets</span>
+        </a>
     </header>
 
     <div id="messages" class="chat-messages">
@@ -31,10 +38,7 @@
     </div>
 
     <form id="message-form" class="chat-input-bar">
-        <button type="button" class="chat-photo-button" aria-label="Foto">
-            <span class="material-symbols-outlined">photo</span>
-        </button>
-        <input type="text" id="message-input" placeholder="Escribe un mensaje..." autocomplete="off">
+        <input type="text" id="message-input" placeholder="Escribe un mensaje..." maxlength="2000" autocomplete="off">
         <button type="submit" class="chat-send-button" aria-label="Enviar">
             <span class="material-symbols-outlined">send</span>
         </button>
@@ -43,177 +47,146 @@
 {% endblock %}
 
 {% block scripts %}
-<script type="module">
-    import {
-        collection,
-        query,
-        orderBy,
-        onSnapshot,
-        addDoc,
-        doc,
-        setDoc,
-        getDoc,
-        serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+<script>
+    (function () {
+        const { api, escaparHtml } = window.PetsAlert;
 
-    import {
-        onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        const API_MENSAJES = "{% url 'chat-messages' pk=chat.id %}";
+        const INTERVALO_MS = 3000;
 
-    const db = window.firebaseDb;
-    const auth = window.firebaseAuth;
-    const receiverId = "{{ receiver_id }}";
-    const requestedName = new URLSearchParams(window.location.search).get('name');
+        const messagesContainer = document.getElementById('messages');
+        const form = document.getElementById('message-form');
+        const input = document.getElementById('message-input');
+        const backButton = document.getElementById('chat-back-button');
 
-    const title = document.getElementById('chat-room-title');
-    const messagesContainer = document.getElementById('messages');
-    const form = document.getElementById('message-form');
-    const input = document.getElementById('message-input');
-    const backButton = document.getElementById('chat-back-button');
+        const idsMostrados = new Set();
+        let ultimoId = 0;
+        let consultando = false;
+        let primeraCarga = true;
 
-    let unsubscribeMessages = null;
-
-    function escaparHtml(texto) {
-        return String(texto ?? '')
-            .replaceAll('&', '&amp;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;')
-            .replaceAll('"', '&quot;')
-            .replaceAll("'", '&#039;');
-    }
-
-    function getChatId(userId1, userId2) {
-        return [userId1, userId2].sort().join('_');
-    }
-
-    function mostrarError(texto) {
-        messagesContainer.innerHTML = `<div class="chat-room-message-state">${escaparHtml(texto)}</div>`;
-    }
-
-    function renderizarMensajes(snapshot, currentUserId) {
-        if (snapshot.empty) {
-            messagesContainer.innerHTML = `
-                <div class="chat-room-message-state">
-                    No hay mensajes aún. Escribe el primero.
-                </div>
-            `;
-            return;
+        function mostrarEstado(texto) {
+            messagesContainer.innerHTML = `<div class="chat-room-message-state">${escaparHtml(texto)}</div>`;
         }
 
-        messagesContainer.innerHTML = '';
+        function estaAlFinal() {
+            return messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 80;
+        }
 
-        snapshot.docs.forEach(messageDoc => {
-            const data = messageDoc.data() || {};
-            const isMe = data.senderId === currentUserId;
-
-            const bubbleWrapper = document.createElement('div');
-            bubbleWrapper.className = `chat-bubble-row ${isMe ? 'mine' : 'theirs'}`;
-            bubbleWrapper.innerHTML = `
-                <div class="chat-bubble ${isMe ? 'mine' : 'theirs'}">
-                    ${escaparHtml(data.message || '')}
+        function crearBurbuja(mensaje) {
+            const fila = document.createElement('div');
+            fila.className = `chat-bubble-row ${mensaje.is_mine ? 'mine' : 'theirs'}`;
+            fila.innerHTML = `
+                <div class="chat-bubble ${mensaje.is_mine ? 'mine' : 'theirs'}">
+                    ${escaparHtml(mensaje.content)}
                 </div>
             `;
+            return fila;
+        }
 
-            messagesContainer.appendChild(bubbleWrapper);
+        function agregarMensajes(mensajes) {
+            const nuevos = mensajes.filter(mensaje => !idsMostrados.has(mensaje.id));
+
+            if (nuevos.length === 0) {
+                return;
+            }
+
+            if (idsMostrados.size === 0) {
+                messagesContainer.innerHTML = '';
+            }
+
+            const bajar = primeraCarga || estaAlFinal() || nuevos.some(mensaje => mensaje.is_mine);
+
+            nuevos.forEach(mensaje => {
+                idsMostrados.add(mensaje.id);
+                ultimoId = Math.max(ultimoId, mensaje.id);
+                messagesContainer.appendChild(crearBurbuja(mensaje));
+            });
+
+            if (bajar) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        }
+
+        async function consultarMensajes() {
+            if (consultando) {
+                return;
+            }
+
+            consultando = true;
+
+            try {
+                const url = ultimoId > 0 ? `${API_MENSAJES}?after=${ultimoId}` : API_MENSAJES;
+                const mensajes = await api(url);
+
+                agregarMensajes(mensajes);
+
+                if (primeraCarga && mensajes.length === 0) {
+                    mostrarEstado('No hay mensajes aún. Escribe el primero.');
+                }
+
+                primeraCarga = false;
+            } catch (error) {
+                console.error(error);
+
+                if (primeraCarga) {
+                    mostrarEstado('Error al cargar mensajes');
+                }
+            } finally {
+                consultando = false;
+            }
+        }
+
+        backButton.addEventListener('click', () => {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = "{% url 'chat_list_screen' %}";
+            }
         });
 
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
+        form.addEventListener('submit', async event => {
+            event.preventDefault();
 
-    async function cargarNombre() {
-        if (requestedName) {
-            title.textContent = requestedName;
-            return;
-        }
+            const contenido = input.value.trim();
 
-        if (!receiverId) return;
-
-        try {
-            const userSnapshot = await getDoc(doc(db, 'usuarios', receiverId));
-            if (userSnapshot.exists()) {
-                const data = userSnapshot.data() || {};
-                title.textContent = data.nombre || 'Contacto del reporte';
+            if (!contenido) {
+                return;
             }
-        } catch (error) {
-            console.error(error);
-        }
-    }
 
-    backButton.addEventListener('click', () => {
-        if (window.history.length > 1) {
-            window.history.back();
-        } else {
-            window.location.href = "{% url 'chat_list_screen' %}";
-        }
-    });
+            input.disabled = true;
 
-    form.addEventListener('submit', async event => {
-        event.preventDefault();
+            try {
+                const mensaje = await api(API_MENSAJES, {
+                    method: 'POST',
+                    body: { content: contenido }
+                });
 
-        const user = auth.currentUser;
-        const message = input.value;
-
-        if (!user || !receiverId || !message.trim()) return;
-
-        input.disabled = true;
-
-        try {
-            const chatId = getChatId(user.uid, receiverId);
-            const timestamp = serverTimestamp();
-
-            await addDoc(
-                collection(db, 'chats', chatId, 'messages'),
-                {
-                    senderId: user.uid,
-                    receiverId,
-                    message: message.trim(),
-                    timestamp
-                }
-            );
-
-            await setDoc(
-                doc(db, 'chats', chatId),
-                {
-                    participants: [user.uid, receiverId],
-                    lastMessage: message.trim(),
-                    lastMessageTime: timestamp
-                },
-                { merge: true }
-            );
-
-            input.value = '';
-        } catch (error) {
-            console.error(error);
-        } finally {
-            input.disabled = false;
-            input.focus();
-        }
-    });
-
-    onAuthStateChanged(auth, async user => {
-        if (!user) {
-            window.location.href = "{% url 'login' %}";
-            return;
-        }
-
-        await cargarNombre();
-
-        const chatId = getChatId(user.uid, receiverId);
-        const messagesQuery = query(
-            collection(db, 'chats', chatId, 'messages'),
-            orderBy('timestamp', 'asc')
-        );
-
-        unsubscribeMessages?.();
-
-        unsubscribeMessages = onSnapshot(
-            messagesQuery,
-            snapshot => renderizarMensajes(snapshot, user.uid),
-            error => {
+                input.value = '';
+                primeraCarga = false;
+                agregarMensajes([mensaje]);
+            } catch (error) {
                 console.error(error);
-                mostrarError('Error al cargar mensajes');
+                window.alert(error.message);
+            } finally {
+                input.disabled = false;
+                input.focus();
             }
-        );
-    });
+        });
+
+        // Se revisan mensajes nuevos cada 3 segundos mientras la pantalla está visible.
+        setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                consultarMensajes();
+            }
+        }, INTERVALO_MS);
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                consultarMensajes();
+            }
+        });
+
+        consultarMensajes();
+    })();
 </script>
 {% endblock %}

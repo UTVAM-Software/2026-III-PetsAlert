@@ -1,0 +1,30 @@
+{% extends 'panel/base_panel.html' %}
+
+{% block title %}{% if object %}Editar{% else %}Nuevo{% endif %} {{ titulo|lower }}{% endblock %}
+
+{% block contenido %}
+<h1>{% if object %}Editar{% else %}Nuevo{% endif %} {{ titulo|lower }}</h1>
+
+<form method="post" enctype="multipart/form-data" class="formulario">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="errores">{{ form.non_field_errors }}</div>{% endif %}
+
+    {% for campo in form %}
+    <div class="campo">
+        <label for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+        {% if campo.field.widget.allow_multiple_selected %}
+        <div class="multiple">{{ campo }}</div>
+        {% else %}
+        {{ campo }}
+        {% endif %}
+        {% if campo.help_text %}<small>{{ campo.help_text }}</small>{% endif %}
+        {% if campo.errors %}<div class="errores">{{ campo.errors }}</div>{% endif %}
+    </div>
+    {% endfor %}
+
+    <div class="botones">
+        <button type="submit" class="boton">Guardar</button>
+        <a class="boton secundario" href="{{ url_lista }}">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

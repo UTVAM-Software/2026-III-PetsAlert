@@ -1,0 +1,21 @@
+{% extends 'panel/base_panel.html' %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block contenido %}
+<div class="encabezado">
+    <h1>{{ titulo }}: {{ object }}</h1>
+    <div>
+        {% if puede_editar %}<a class="boton" href="{{ url_editar }}">Editar</a>{% endif %}
+        {% if puede_eliminar %}<a class="boton peligro" href="{{ url_eliminar }}">Eliminar</a>{% endif %}
+        <a class="boton secundario" href="{{ url_lista }}">Volver</a>
+    </div>
+</div>
+
+<dl class="detalle">
+    {% for etiqueta, dato in campos %}
+    <dt>{{ etiqueta }}</dt>
+    <dd>{% if dato is True %}Sí{% elif dato is False %}No{% elif dato is None or dato == '' %}—{% else %}{{ dato }}{% endif %}</dd>
+    {% endfor %}
+</dl>
+{% endblock %}

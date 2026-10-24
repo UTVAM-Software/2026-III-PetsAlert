@@ -1,11 +1,16 @@
-from django.urls import path
+from django.urls import include, path
+from rest_framework.routers import SimpleRouter
+
 from . import views
 
+router = SimpleRouter()
+router.register('chats', views.ChatViewSet, basename='chat')
+
 urlpatterns = [
-    # Tus rutas web
+    # Pantallas
     path('', views.chat_list_screen, name='chat_list_screen'),
-    path('room/<str:receiver_id>/', views.chat_room_screen, name='chat_room_screen'),
-    
-    # Tu nueva ruta para conectar el chat con el frontend/Flutter
-    path('api/messages/', views.MessageListCreateView.as_view(), name='api_messages'),
+    path('room/<int:chat_id>/', views.chat_room_screen, name='chat_room_screen'),
+
+    # API: /chat/api/chats/  /chat/api/chats/<id>/  /chat/api/chats/<id>/messages/
+    path('api/', include(router.urls)),
 ]

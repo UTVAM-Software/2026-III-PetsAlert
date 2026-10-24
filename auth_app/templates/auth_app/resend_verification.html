@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+
+{% block title %}Verificar correo - Pets Alert{% endblock %}
+
+{% block extra_head %}
+<style>
+    .navbar {
+        display: none;
+    }
+
+    main {
+        padding: 0;
+        max-width: none;
+        margin: 0;
+    }
+</style>
+{% endblock %}
+
+{% block bottom_nav %}{% endblock %}
+
+{% block content %}
+<div class="forgot-password-page">
+    <div class="forgot-password-container">
+        <header class="forgot-password-appbar">
+            <button
+                type="button"
+                class="forgot-password-back-button"
+                id="back-button"
+                aria-label="Regresar"
+            >
+                <span class="material-symbols-outlined">arrow_back</span>
+            </button>
+
+            <h1>Verificar correo</h1>
+
+            <div class="forgot-password-appbar-spacer"></div>
+        </header>
+
+        <div class="forgot-password-content">
+            <h2>¿No te llegó el correo?</h2>
+
+            <p>
+                Ingresa el correo con el que te registraste y te enviaremos un
+                nuevo enlace para verificar tu cuenta.
+            </p>
+
+            <form id="resend-form" method="post" action="{% url 'resend_verification' %}" novalidate>
+                {% csrf_token %}
+
+                <div class="forgot-password-field">
+                    <label for="resend-email">Correo electrónico</label>
+
+                    <div class="forgot-password-input-wrapper">
+                        <span class="material-symbols-outlined">email</span>
+
+                        <input
+                            type="email"
+                            id="resend-email"
+                            name="email"
+                            value="{{ email }}"
+                            autocomplete="email"
+                        >
+                    </div>
+                </div>
+
+                <div id="forgot-password-error" class="forgot-password-error">{% for error in errores %}{{ error }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</div>
+
+                <button
+                    type="submit"
+                    id="forgot-password-button"
+                    class="forgot-password-submit-button"
+                >
+                    Reenviar Enlace
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    (function () {
+        const backButton = document.getElementById('back-button');
+        const form = document.getElementById('resend-form');
+        const button = document.getElementById('forgot-password-button');
+
+        backButton.addEventListener('click', () => {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = "{% url 'login' %}";
+            }
+        });
+
+        if (form && button) {
+            form.addEventListener('submit', () => {
+                button.disabled = true;
+                button.innerHTML = '<span class="forgot-password-spinner"></span>';
+            });
+
+            window.addEventListener('pageshow', event => {
+                if (event.persisted) {
+                    button.disabled = false;
+                    button.textContent = 'Reenviar Enlace';
+                }
+            });
+        }
+    })();
+</script>
+{% endblock %}

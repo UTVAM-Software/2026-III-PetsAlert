@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block title %}Sin permiso - Pets Alert{% endblock %}
+
+{% block content %}
+<div style="text-align:center;padding:48px 16px;">
+    <span class="material-symbols-outlined" style="font-size:56px;">lock</span>
+    <h1>Sin permiso</h1>
+    <p>No tienes permiso para ver esta página.</p>
+    <p><a href="{% url 'feed_screen' %}">Volver al inicio</a></p>
+</div>
+{% endblock %}

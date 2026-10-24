@@ -39,6 +39,10 @@
                 <div class="feed-spinner"></div>
             </div>
         </div>
+
+        <div id="feed-more-wrapper" style="text-align: center; padding: 16px 0;" hidden>
+            <button type="button" id="feed-more" class="feed-filter-chip">Cargar más</button>
+        </div>
     </div>
 
     <a href="{% url 'add_report_screen' %}" class="feed-report-button">
@@ -49,175 +53,76 @@
 {% endblock %}
 
 {% block scripts %}
-<script type="module">
-    import {
-        collection,
-        onSnapshot,
-        orderBy,
-        query
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+<script>
+    (function () {
+        const { api, escaparHtml } = window.PetsAlert;
 
-    const db = window.firebaseDb;
-    const feedContainer = document.getElementById('feed-container');
-    const filtersContainer = document.getElementById('feed-filters');
+        const API_REPORTES = "{% url 'report-list' %}";
+        const DETALLE_URL = "{% url 'pet_detail_screen' pk=0 %}";
 
-    const categorias = [
-        'Todos',
-        'Perro',
-        'Gato',
-        'Ave',
-        'Conejo',
-        'Otro'
-    ];
+        const feedContainer = document.getElementById('feed-container');
+        const filtersContainer = document.getElementById('feed-filters');
+        const moreWrapper = document.getElementById('feed-more-wrapper');
+        const moreButton = document.getElementById('feed-more');
 
-    let filtroSeleccionado = 'Todos';
-    let todosLosReportes = [];
+        const categorias = [
+            { etiqueta: 'Todos', valor: '' },
+            { etiqueta: 'Perro', valor: 'PERRO' },
+            { etiqueta: 'Gato', valor: 'GATO' },
+            { etiqueta: 'Ave', valor: 'AVE' },
+            { etiqueta: 'Conejo', valor: 'CONEJO' },
+            { etiqueta: 'Otro', valor: 'OTRO' }
+        ];
 
-    function obtenerImagenSrc(base64) {
-        if (!base64 || typeof base64 !== 'string') {
-            return null;
-        }
+        let filtroSeleccionado = '';
+        let reportes = [];
+        let urlSiguiente = null;
+        let numeroSolicitud = 0;
 
-        const contenido = base64.includes(',')
-            ? base64.split(',').pop()
-            : base64;
+        function renderizarFiltros() {
+            filtersContainer.innerHTML = '';
 
-        try {
-            const bytes = Uint8Array.from(atob(contenido.substring(0, 32)), char => char.charCodeAt(0));
+            categorias.forEach(categoria => {
+                const button = document.createElement('button');
 
-            if (
-                bytes.length >= 8 &&
-                bytes[0] === 0x89 &&
-                bytes[1] === 0x50 &&
-                bytes[2] === 0x4E &&
-                bytes[3] === 0x47
-            ) {
-                return `data:image/png;base64,${contenido}`;
-            }
+                button.type = 'button';
+                button.className = 'feed-filter-chip';
+                button.textContent = categoria.etiqueta;
 
-            if (
-                bytes.length >= 3 &&
-                bytes[0] === 0xFF &&
-                bytes[1] === 0xD8 &&
-                bytes[2] === 0xFF
-            ) {
-                return `data:image/jpeg;base64,${contenido}`;
-            }
+                if (categoria.valor === filtroSeleccionado) {
+                    button.classList.add('selected');
+                }
 
-            if (
-                bytes.length >= 12 &&
-                bytes[0] === 0x52 &&
-                bytes[1] === 0x49 &&
-                bytes[2] === 0x46 &&
-                bytes[3] === 0x46 &&
-                bytes[8] === 0x57 &&
-                bytes[9] === 0x45 &&
-                bytes[10] === 0x42 &&
-                bytes[11] === 0x50
-            ) {
-                return `data:image/webp;base64,${contenido}`;
-            }
+                button.addEventListener('click', () => {
+                    filtroSeleccionado = categoria.valor;
+                    renderizarFiltros();
+                    cargar({ reiniciar: true });
+                });
 
-            return `data:image/jpeg;base64,${contenido}`;
-        } catch (error) {
-            return null;
-        }
-    }
-
-    function escaparHtml(texto) {
-        return String(texto)
-            .replaceAll('&', '&amp;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;')
-            .replaceAll('"', '&quot;')
-            .replaceAll("'", '&#039;');
-    }
-
-    function renderizarFiltros() {
-        filtersContainer.innerHTML = '';
-
-        categorias.forEach(categoria => {
-            const button = document.createElement('button');
-
-            button.type = 'button';
-            button.className = 'feed-filter-chip';
-            button.textContent = categoria;
-
-            if (categoria === filtroSeleccionado) {
-                button.classList.add('selected');
-            }
-
-            button.addEventListener('click', () => {
-                filtroSeleccionado = categoria;
-                renderizarFiltros();
-                renderizarReportes();
+                filtersContainer.appendChild(button);
             });
-
-            filtersContainer.appendChild(button);
-        });
-    }
-
-    function renderizarReportes() {
-        const reportesFiltrados = todosLosReportes.filter(doc => {
-            if (filtroSeleccionado === 'Todos') {
-                return true;
-            }
-
-            const data = doc.data();
-            const mascota = data.mascota || {};
-
-            return mascota.especie === filtroSeleccionado;
-        });
-
-        if (todosLosReportes.length === 0) {
-            feedContainer.innerHTML = `
-                <div class="feed-empty">
-                    <p>No hay reportes activos.</p>
-                    <p>¡Sé el primero en publicar!</p>
-                </div>
-            `;
-            return;
         }
 
-        if (reportesFiltrados.length === 0) {
-            feedContainer.innerHTML = `
-                <div class="feed-empty">
-                    <p>No hay reportes de ${escaparHtml(filtroSeleccionado)} en este momento.</p>
-                </div>
-            `;
-            return;
-        }
-
-        feedContainer.innerHTML = '';
-
-        reportesFiltrados.forEach(docSnap => {
-            const data = docSnap.data();
-            const mascota = data.mascota || {};
-            const ubicacion = data.ubicacion || {};
-
-            const tipo = data.tipoReporte || 'se busca';
-            const especie = mascota.especie || 'Desconocida';
-            const localidad = ubicacion.localidad || 'Sin ubicación';
-            const descripcion = mascota.descripcion || 'Sin descripción';
-            const fotoBase64 = mascota.fotoBase64 || null;
-
-            const isFound = tipo === 'encontrado';
-            const imagenSrc = obtenerImagenSrc(fotoBase64);
+        function crearTarjeta(reporte) {
+            const encontrado = reporte.status === 'ENCONTRADO';
+            const especie = reporte.species_display || 'Desconocida';
+            const localidad = reporte.last_seen_location || 'Sin ubicación';
+            const descripcion = reporte.description || 'Sin descripción';
 
             const card = document.createElement('a');
             card.className = 'pet-card';
-            card.href = "{% url 'pet_detail_screen' pk=0 %}".replace('/0/', `/${docSnap.id}/`);
+            card.href = DETALLE_URL.replace('/0/', `/${reporte.id}/`);
 
             card.innerHTML = `
                 <div class="pet-image-container">
-                    ${imagenSrc
-                    ? `<img src="${imagenSrc}" alt="Foto de ${escaparHtml(especie)}">`
-                    : `<div class="pet-placeholder"><span class="material-symbols-outlined">pets</span></div>`
-                }
+                    ${reporte.image
+                        ? `<img src="${escaparHtml(reporte.image)}" alt="Foto de ${escaparHtml(especie)}">`
+                        : `<div class="pet-placeholder"><span class="material-symbols-outlined">pets</span></div>`
+                    }
                 </div>
 
-                <div class="status-bar ${isFound ? 'status-encontrada' : 'status-buscada'}">
-                    ${isFound ? 'ENCONTRADO' : 'SE BUSCA'}
+                <div class="status-bar ${encontrado ? 'status-encontrada' : 'status-buscada'}">
+                    ${encontrado ? 'ENCONTRADO' : 'SE BUSCA'}
                 </div>
 
                 <div class="pet-info">
@@ -232,44 +137,106 @@
             if (image) {
                 image.addEventListener('error', () => {
                     const placeholder = document.createElement('div');
-
                     placeholder.className = 'pet-placeholder';
-
-                    placeholder.innerHTML = ` <span class="material-symbols-outlined">pets</span>`;
-
+                    placeholder.innerHTML = '<span class="material-symbols-outlined">pets</span>';
                     image.replaceWith(placeholder);
                 });
             }
 
-            feedContainer.appendChild(card);
-        });
-    }
+            return card;
+        }
 
-    function cargarReportes() {
-        const publicacionesQuery = query(
-            collection(db, 'publicaciones'),
-            orderBy('fechaPublicacion', 'desc')
-        );
+        function renderizar() {
+            if (reportes.length === 0) {
+                const categoria = categorias.find(item => item.valor === filtroSeleccionado);
 
-        onSnapshot(
-            publicacionesQuery,
-            snapshot => {
-                todosLosReportes = snapshot.docs;
-                renderizarReportes();
-            },
-            error => {
+                feedContainer.innerHTML = filtroSeleccionado === ''
+                    ? `
+                        <div class="feed-empty">
+                            <p>No hay reportes activos.</p>
+                            <p>¡Sé el primero en publicar!</p>
+                        </div>
+                    `
+                    : `
+                        <div class="feed-empty">
+                            <p>No hay reportes de ${escaparHtml(categoria.etiqueta)} en este momento.</p>
+                        </div>
+                    `;
+                return;
+            }
+
+            feedContainer.innerHTML = '';
+            reportes.forEach(reporte => feedContainer.appendChild(crearTarjeta(reporte)));
+        }
+
+        async function cargar({ reiniciar }) {
+            const solicitud = ++numeroSolicitud;
+            let url;
+
+            if (reiniciar) {
+                reportes = [];
+                urlSiguiente = null;
+                moreWrapper.hidden = true;
+                feedContainer.innerHTML = '<div class="feed-loading"><div class="feed-spinner"></div></div>';
+
+                url = filtroSeleccionado
+                    ? `${API_REPORTES}?species=${encodeURIComponent(filtroSeleccionado)}`
+                    : API_REPORTES;
+            } else {
+                url = urlSiguiente;
+            }
+
+            if (!url) {
+                return;
+            }
+
+            moreButton.disabled = true;
+
+            try {
+                const datos = await api(url);
+
+                // Si mientras tanto se cambió de filtro, esta respuesta ya no sirve.
+                if (solicitud !== numeroSolicitud) {
+                    return;
+                }
+
+                reportes = reportes.concat(datos.results);
+                urlSiguiente = datos.next;
+
+                renderizar();
+                moreWrapper.hidden = !urlSiguiente;
+            } catch (error) {
+                if (solicitud !== numeroSolicitud) {
+                    return;
+                }
+
                 console.error(error);
 
-                feedContainer.innerHTML = `
-                    <div class="feed-error">
-                        Error al cargar las publicaciones.
-                    </div>
-                `;
+                if (reportes.length === 0) {
+                    feedContainer.innerHTML = `
+                        <div class="feed-error">
+                            Error al cargar las publicaciones.
+                        </div>
+                    `;
+                }
+            } finally {
+                if (solicitud === numeroSolicitud) {
+                    moreButton.disabled = false;
+                }
             }
-        );
-    }
+        }
 
-    renderizarFiltros();
-    cargarReportes();
+        moreButton.addEventListener('click', () => cargar({ reiniciar: false }));
+
+        // Al volver con el botón "atrás" se refresca la lista.
+        window.addEventListener('pageshow', event => {
+            if (event.persisted) {
+                cargar({ reiniciar: true });
+            }
+        });
+
+        renderizarFiltros();
+        cargar({ reiniciar: true });
+    })();
 </script>
 {% endblock %}
