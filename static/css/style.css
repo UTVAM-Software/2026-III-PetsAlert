@@ -348,9 +348,6 @@ textarea:focus {
     }
 }
 
-
-
-
 .pet-detail-page {
     min-height: 100vh;
     background-color: var(--background-color);
@@ -551,15 +548,6 @@ textarea:focus {
         transform: rotate(360deg);
     }
 }
-
-
-
-
-
-
-
-
-
 
 .add-report-page {
     min-height: 100vh;
@@ -803,8 +791,6 @@ textarea:focus {
     }
 }
 
-
-
 .login-page {
     min-height: 100vh;
     background-color: #FFFFFF;
@@ -949,25 +935,6 @@ textarea:focus {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 .register-page {
     min-height: 100vh;
     background-color: #FFFFFF;
@@ -1095,19 +1062,6 @@ textarea:focus {
         padding: 24px;
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 .forgot-password-page {
     min-height: 100vh;
@@ -1270,9 +1224,7 @@ textarea:focus {
         padding: 24px;
     }
 }
-/* ============================
-   Home / Bottom navigation
-   ============================ */
+
 .bottom-nav {
     position: fixed;
     left: 0;
@@ -1311,16 +1263,12 @@ textarea:focus {
     color: #FF9800;
 }
 
-/* HomeScreen pages reserve room for the fixed navigation. */
 .chat-list-page,
 .profile-page,
 .my-reports-page {
     padding-bottom: 68px;
 }
 
-/* ============================
-   Chat list
-   ============================ */
 .chat-list-page,
 .chat-room-page {
     min-height: 100vh;
@@ -1445,9 +1393,6 @@ textarea:focus {
     flex: 0 0 auto;
 }
 
-/* ============================
-   Chat room
-   ============================ */
 .chat-room-appbar {
     padding: 0 8px;
 }
@@ -1578,9 +1523,6 @@ textarea:focus {
     padding: 0 16px;
 }
 
-/* ============================
-   Profile
-   ============================ */
 .profile-page,
 .my-reports-page,
 .privacy-page {
@@ -1723,7 +1665,6 @@ textarea:focus {
     font-weight: 700;
 }
 
-/* Edit profile modal */
 .profile-modal-backdrop,
 .confirm-modal-backdrop {
     position: fixed;
@@ -1806,9 +1747,6 @@ textarea:focus {
     color: #FFFFFF;
 }
 
-/* ============================
-   My reports
-   ============================ */
 .my-reports-content {
     width: 100%;
     max-width: 900px;
@@ -1951,9 +1889,6 @@ textarea:focus {
     color: #FFFFFF;
 }
 
-/* ============================
-   Privacy
-   ============================ */
 .privacy-appbar {
     justify-content: space-between;
     padding: 0 8px;

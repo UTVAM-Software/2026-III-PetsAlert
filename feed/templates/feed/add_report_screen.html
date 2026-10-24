@@ -59,12 +59,27 @@
             <div class="form-group">
                 <label for="especie">Especie</label>
                 <select id="especie" required>
-                    <option value="Perro">Perro</option>
-                    <option value="Gato">Gato</option>
-                    <option value="Ave">Ave</option>
-                    <option value="Conejo">Conejo</option>
-                    <option value="Otro">Otro</option>
+                    <option value="PERRO">Perro</option>
+                    <option value="GATO">Gato</option>
+                    <option value="AVE">Ave</option>
+                    <option value="CONEJO">Conejo</option>
+                    <option value="OTRO">Otro</option>
                 </select>
+            </div>
+
+            <div class="form-group">
+                <label for="nombre">Nombre (opcional)</label>
+                <input type="text" id="nombre" maxlength="100" autocomplete="off">
+            </div>
+
+            <div class="form-group">
+                <label for="raza">Raza (opcional)</label>
+                <input type="text" id="raza" maxlength="100" autocomplete="off">
+            </div>
+
+            <div class="form-group">
+                <label for="color">Color predominante (opcional)</label>
+                <input type="text" id="color" maxlength="50" autocomplete="off">
             </div>
 
             <div class="form-group">
@@ -74,6 +89,7 @@
                     <input
                         type="text"
                         id="localidad"
+                        maxlength="255"
                         required
                     >
                 </div>
@@ -101,138 +117,87 @@
 {% endblock %}
 
 {% block scripts %}
-<script type="module">
-    import {
-        doc,
-        getDoc,
-        addDoc,
-        updateDoc,
-        collection,
-        serverTimestamp
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+<script>
+    (function () {
+        const { api } = window.PetsAlert;
 
-    import {
-        onAuthStateChanged
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        const reporteId = "{{ reporte_id|default:'' }}";
+        const isEditing = reporteId !== "";
 
-    const db = window.firebaseDb;
-    const auth = window.firebaseAuth;
+        const API_REPORTES = "{% url 'report-list' %}";
+        const API_REPORTE = "{% if reporte_id %}{% url 'report-detail' pk=reporte_id %}{% endif %}";
 
-    const reporteId = "{{ reporte_id|default:'' }}";
-    const isEditing = reporteId !== "";
+        const form = document.getElementById('report-form');
+        const screenTitle = document.getElementById('screen-title');
+        const lostButton = document.getElementById('lost-button');
+        const foundButton = document.getElementById('found-button');
+        const imageInput = document.getElementById('image-input');
+        const imagePicker = document.getElementById('image-picker');
+        const imagePreview = document.getElementById('image-preview');
+        const especieInput = document.getElementById('especie');
+        const nombreInput = document.getElementById('nombre');
+        const razaInput = document.getElementById('raza');
+        const colorInput = document.getElementById('color');
+        const localidadInput = document.getElementById('localidad');
+        const descripcionInput = document.getElementById('descripcion');
+        const submitButton = document.getElementById('submit-button');
+        const formError = document.getElementById('form-error');
+        const localidadError = document.getElementById('localidad-error');
+        const descripcionError = document.getElementById('descripcion-error');
+        const backButton = document.getElementById('back-button');
 
-    const form = document.getElementById('report-form');
-    const screenTitle = document.getElementById('screen-title');
-    const lostButton = document.getElementById('lost-button');
-    const foundButton = document.getElementById('found-button');
-    const imageInput = document.getElementById('image-input');
-    const imagePicker = document.getElementById('image-picker');
-    const imagePreview = document.getElementById('image-preview');
-    const especieInput = document.getElementById('especie');
-    const localidadInput = document.getElementById('localidad');
-    const descripcionInput = document.getElementById('descripcion');
-    const submitButton = document.getElementById('submit-button');
-    const formError = document.getElementById('form-error');
-    const localidadError = document.getElementById('localidad-error');
-    const descripcionError = document.getElementById('descripcion-error');
-    const backButton = document.getElementById('back-button');
-
-    let tipoReporte = 'se busca';
-    let imagenBase64Existente = null;
-    let imagenBase64Seleccionada = null;
-    let imagenPreviewUrl = null;
-    let usuarioActual = null;
-
-    function escaparHtml(texto) {
-        return String(texto)
-            .replaceAll('&', '&amp;')
-            .replaceAll('<', '&lt;')
-            .replaceAll('>', '&gt;')
-            .replaceAll('"', '&quot;')
-            .replaceAll("'", '&#039;');
-    }
-
-    function esperarUsuario() {
-        return new Promise(resolve => {
-            const unsubscribe = onAuthStateChanged(auth, user => {
-                unsubscribe();
-                usuarioActual = user;
-                resolve(user);
-            });
-        });
-    }
-
-    function actualizarTipoReporte() {
-        lostButton.classList.toggle('selected', tipoReporte === 'se busca');
-        foundButton.classList.toggle('selected', tipoReporte === 'encontrado');
-    }
-
-    function mostrarErrorCampo(elemento, mensaje) {
-        elemento.textContent = mensaje;
-    }
-
-    function limpiarErrores() {
-        formError.textContent = '';
-        localidadError.textContent = '';
-        descripcionError.textContent = '';
-    }
-
-    function mostrarErrorGeneral(mensaje) {
-        formError.textContent = mensaje;
-    }
-
-    function obtenerDataUrl(base64) {
-        if (!base64) {
-            return null;
-        }
-
-        if (base64.startsWith('data:')) {
-            return base64;
-        }
-
-        return `data:image/jpeg;base64,${base64}`;
-    }
-
-    function mostrarPreviewBase64(base64) {
-        const dataUrl = obtenerDataUrl(base64);
-
-        if (!dataUrl) {
-            imagePreview.innerHTML = `
-                <span class="image-placeholder-icon">📷</span>
-                <span class="image-placeholder-text">Toca para subir foto</span>
-            `;
-            return;
-        }
-
-        imagePreview.innerHTML = `
-            <img src="${dataUrl}" alt="Vista previa de mascota">
+        const PLACEHOLDER_FOTO = `
+            <span class="image-placeholder-icon">📷</span>
+            <span class="image-placeholder-text">Toca para subir foto</span>
         `;
 
-        const image = imagePreview.querySelector('img');
+        let tipoReporte = 'PERDIDO';
+        let imagenSeleccionada = null;
+        let tieneImagenExistente = false;
+        let urlPreview = null;
 
-        image.addEventListener('error', () => {
-            imagePreview.innerHTML = `
-                <span class="image-placeholder-icon">📷</span>
-                <span class="image-placeholder-text">Toca para subir foto</span>
-            `;
-        });
-    }
+        function actualizarTipoReporte() {
+            lostButton.classList.toggle('selected', tipoReporte === 'PERDIDO');
+            foundButton.classList.toggle('selected', tipoReporte === 'ENCONTRADO');
+        }
 
-    function comprimirImagen(file) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
+        function limpiarErrores() {
+            formError.textContent = '';
+            localidadError.textContent = '';
+            descripcionError.textContent = '';
+        }
 
-            reader.onload = event => {
+        function mostrarErrorGeneral(mensaje) {
+            formError.textContent = mensaje;
+        }
+
+        function mostrarPreview(src) {
+            if (!src) {
+                imagePreview.innerHTML = PLACEHOLDER_FOTO;
+                return;
+            }
+
+            imagePreview.innerHTML = '<img alt="Vista previa de mascota">';
+
+            const image = imagePreview.querySelector('img');
+            image.addEventListener('error', () => {
+                imagePreview.innerHTML = PLACEHOLDER_FOTO;
+            });
+            image.src = src;
+        }
+
+        function comprimirImagen(file) {
+            return new Promise((resolve, reject) => {
+                const url = URL.createObjectURL(file);
                 const img = new Image();
 
                 img.onload = () => {
-                    let width = img.width;
-                    let height = img.height;
+                    URL.revokeObjectURL(url);
 
-                    if (width > 600) {
-                        height = Math.round(height * (600 / width));
-                        width = 600;
-                    }
+                    const maxLado = 1280;
+                    const escala = Math.min(1, maxLado / Math.max(img.width, img.height));
+                    const width = Math.round(img.width * escala);
+                    const height = Math.round(img.height * escala);
 
                     const canvas = document.createElement('canvas');
                     canvas.width = width;
@@ -247,238 +212,225 @@
 
                     context.drawImage(img, 0, 0, width, height);
 
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
-                    const base64 = dataUrl.split(',')[1];
-
-                    resolve({
-                        base64,
-                        dataUrl
-                    });
+                    canvas.toBlob(blob => {
+                        if (blob) {
+                            resolve(blob);
+                        } else {
+                            reject(new Error('No se pudo procesar la imagen.'));
+                        }
+                    }, 'image/jpeg', 0.8);
                 };
 
                 img.onerror = () => {
+                    URL.revokeObjectURL(url);
                     reject(new Error('No se pudo leer la imagen.'));
                 };
 
-                img.src = event.target.result;
-            };
+                img.src = url;
+            });
+        }
 
-            reader.onerror = () => {
-                reject(new Error('No se pudo leer el archivo.'));
-            };
+        async function procesarImagen() {
+            const file = imageInput.files && imageInput.files[0];
 
-            reader.readAsDataURL(file);
-        });
-    }
-
-    async function cargarReporteExistente() {
-        try {
-            const reporteRef = doc(db, 'publicaciones', reporteId);
-            const reporteSnap = await getDoc(reporteRef);
-
-            if (!reporteSnap.exists()) {
-                mostrarErrorGeneral('El reporte no existe.');
-                submitButton.disabled = true;
+            if (!file) {
                 return;
             }
 
-            const data = reporteSnap.data();
-            const mascota = data.mascota || {};
-            const ubicacion = data.ubicacion || {};
+            try {
+                const blob = await comprimirImagen(file);
 
-            tipoReporte = data.tipoReporte || 'se busca';
-            especieInput.value = mascota.especie || 'Perro';
-            localidadInput.value = ubicacion.localidad || '';
-            descripcionInput.value = mascota.descripcion || '';
-            imagenBase64Existente = mascota.fotoBase64 || null;
+                if (urlPreview) {
+                    URL.revokeObjectURL(urlPreview);
+                }
 
-            actualizarTipoReporte();
-
-            if (imagenBase64Existente) {
-                mostrarPreviewBase64(imagenBase64Existente);
+                imagenSeleccionada = blob;
+                urlPreview = URL.createObjectURL(blob);
+                mostrarPreview(urlPreview);
+            } catch (error) {
+                console.error(error);
+                mostrarErrorGeneral('No se pudo procesar la imagen.');
             }
-        } catch (error) {
-            console.error(error);
-            mostrarErrorGeneral('Error al cargar el reporte.');
-            submitButton.disabled = true;
-        }
-    }
-
-    function actualizarInterfazEdicion() {
-        if (isEditing) {
-            screenTitle.textContent = 'Editar Reporte';
-            submitButton.textContent = 'Guardar Cambios';
-        } else {
-            screenTitle.textContent = 'Crear Reporte';
-            submitButton.textContent = 'Publicar Reporte';
-        }
-    }
-
-    async function procesarImagen() {
-        const file = imageInput.files?.[0];
-
-        if (!file) {
-            return;
         }
 
-        try {
-            const resultado = await comprimirImagen(file);
+        async function cargarReporteExistente() {
+            try {
+                const reporte = await api(API_REPORTE);
 
-            imagenBase64Seleccionada = resultado.base64;
-            imagenBase64Existente = null;
-            imagenPreviewUrl = resultado.dataUrl;
+                tipoReporte = reporte.status || 'PERDIDO';
+                especieInput.value = reporte.species || 'OTRO';
+                nombreInput.value = reporte.name || '';
+                razaInput.value = reporte.breed || '';
+                colorInput.value = reporte.color || '';
+                localidadInput.value = reporte.last_seen_location || '';
+                descripcionInput.value = reporte.description || '';
 
-            imagePreview.innerHTML = `
-                <img src="${resultado.dataUrl}" alt="Vista previa de mascota">
-            `;
-        } catch (error) {
-            console.error(error);
-            mostrarErrorGeneral('No se pudo procesar la imagen.');
-        }
-    }
+                actualizarTipoReporte();
 
-    function validarFormulario() {
-        limpiarErrores();
-
-        let valido = true;
-
-        if (!localidadInput.value.trim()) {
-            mostrarErrorCampo(localidadError, 'Requerido');
-            valido = false;
-        }
-
-        if (!descripcionInput.value.trim()) {
-            mostrarErrorCampo(descripcionError, 'Requerido');
-            valido = false;
+                if (reporte.image) {
+                    tieneImagenExistente = true;
+                    mostrarPreview(reporte.image);
+                }
+            } catch (error) {
+                console.error(error);
+                mostrarErrorGeneral(
+                    error.status === 404 ? 'El reporte no existe.' : 'Error al cargar el reporte.'
+                );
+                submitButton.disabled = true;
+            }
         }
 
-        if (!imagenBase64Seleccionada && !imagenBase64Existente) {
-            mostrarErrorGeneral('Por favor, selecciona una foto de la mascota.');
-            valido = false;
-        }
-
-        return valido;
-    }
-
-    function bloquearFormulario(bloquear) {
-        submitButton.disabled = bloquear;
-        lostButton.disabled = bloquear;
-        foundButton.disabled = bloquear;
-        imagePicker.disabled = bloquear;
-        especieInput.disabled = bloquear;
-        localidadInput.disabled = bloquear;
-        descripcionInput.disabled = bloquear;
-
-        if (bloquear) {
-            submitButton.innerHTML = '<span class="submit-spinner"></span>';
-        } else {
-            submitButton.textContent = isEditing
-                ? 'Guardar Cambios'
-                : 'Publicar Reporte';
-        }
-    }
-
-    async function enviarReporteSeguro() {
-        if (!validarFormulario()) {
-            return;
-        }
-
-        const currentUser = usuarioActual || auth.currentUser;
-
-        if (!currentUser) {
-            mostrarErrorGeneral('Debes iniciar sesión para realizar esta acción.');
-            return;
-        }
-
-        bloquearFormulario(true);
-
-        try {
-            const base64Image = imagenBase64Seleccionada || imagenBase64Existente;
-
-            const reporteData = {
-                tipoReporte,
-                mascota: {
-                    especie: especieInput.value,
-                    descripcion: descripcionInput.value.trim(),
-                    fotoBase64: base64Image
-                },
-                ubicacion: {
-                    localidad: localidadInput.value.trim()
-                },
-                estado: 'activo'
-            };
-
+        function actualizarInterfazEdicion() {
             if (isEditing) {
-                reporteData.fechaActualizacion = serverTimestamp();
-
-                await updateDoc(
-                    doc(db, 'publicaciones', reporteId),
-                    reporteData
-                );
+                screenTitle.textContent = 'Editar Reporte';
+                submitButton.textContent = 'Guardar Cambios';
             } else {
-                reporteData.userId = currentUser.uid;
-                reporteData.fechaPublicacion = serverTimestamp();
+                screenTitle.textContent = 'Crear Reporte';
+                submitButton.textContent = 'Publicar Reporte';
+            }
+        }
 
-                await addDoc(
-                    collection(db, 'publicaciones'),
-                    reporteData
-                );
+        function validarFormulario() {
+            limpiarErrores();
+
+            let valido = true;
+
+            if (!localidadInput.value.trim()) {
+                localidadError.textContent = 'Requerido';
+                valido = false;
             }
 
-            const mensaje = isEditing
-                ? '✅ Reporte actualizado'
-                : '✅ Reporte publicado con éxito';
+            if (!descripcionInput.value.trim()) {
+                descripcionError.textContent = 'Requerido';
+                valido = false;
+            }
 
-            sessionStorage.setItem('petsAlertMessage', mensaje);
+            if (!imagenSeleccionada && !tieneImagenExistente) {
+                mostrarErrorGeneral('Por favor, selecciona una foto de la mascota.');
+                valido = false;
+            }
 
-            window.location.href = "{% url 'feed_screen' %}";
-        } catch (error) {
-            console.error(error);
-            mostrarErrorGeneral('Error de seguridad o imagen muy pesada.');
-            bloquearFormulario(false);
+            return valido;
         }
-    }
 
-    lostButton.addEventListener('click', () => {
-        tipoReporte = 'se busca';
-        actualizarTipoReporte();
-    });
+        function bloquearFormulario(bloquear) {
+            submitButton.disabled = bloquear;
+            lostButton.disabled = bloquear;
+            foundButton.disabled = bloquear;
+            imagePicker.disabled = bloquear;
+            especieInput.disabled = bloquear;
+            nombreInput.disabled = bloquear;
+            razaInput.disabled = bloquear;
+            colorInput.disabled = bloquear;
+            localidadInput.disabled = bloquear;
+            descripcionInput.disabled = bloquear;
 
-    foundButton.addEventListener('click', () => {
-        tipoReporte = 'encontrado';
-        actualizarTipoReporte();
-    });
-
-    imagePicker.addEventListener('click', () => {
-        imageInput.click();
-    });
-
-    imageInput.addEventListener('change', procesarImagen);
-
-    backButton.addEventListener('click', () => {
-        if (window.history.length > 1) {
-            window.history.back();
-        } else {
-            window.location.href = "{% url 'feed_screen' %}";
+            if (bloquear) {
+                submitButton.innerHTML = '<span class="submit-spinner"></span>';
+            } else {
+                submitButton.textContent = isEditing ? 'Guardar Cambios' : 'Publicar Reporte';
+            }
         }
-    });
 
-    form.addEventListener('submit', event => {
-        event.preventDefault();
-        enviarReporteSeguro();
-    });
+        function mostrarErroresDeApi(error) {
+            const datos = error.datos;
+            const generales = [];
 
-    actualizarTipoReporte();
-    actualizarInterfazEdicion();
+            if (datos && typeof datos === 'object' && typeof datos.detail !== 'string') {
+                for (const [campo, mensajes] of Object.entries(datos)) {
+                    const texto = [].concat(mensajes).join(' ');
 
-    async function inicializar() {
-        await esperarUsuario();
+                    if (campo === 'description') {
+                        descripcionError.textContent = texto;
+                    } else if (campo === 'last_seen_location') {
+                        localidadError.textContent = texto;
+                    } else {
+                        generales.push(texto);
+                    }
+                }
+            } else {
+                generales.push(error.message);
+            }
+
+            mostrarErrorGeneral(generales.join(' '));
+        }
+
+        async function enviarReporte() {
+            if (!validarFormulario()) {
+                return;
+            }
+
+            bloquearFormulario(true);
+
+            try {
+                const datos = new FormData();
+
+                datos.append('status', tipoReporte);
+                datos.append('species', especieInput.value);
+                datos.append('name', nombreInput.value.trim());
+                datos.append('breed', razaInput.value.trim());
+                datos.append('color', colorInput.value.trim());
+                datos.append('description', descripcionInput.value.trim());
+                datos.append('last_seen_location', localidadInput.value.trim());
+
+                if (imagenSeleccionada) {
+                    datos.append('image', imagenSeleccionada, 'foto.jpg');
+                }
+
+                if (isEditing) {
+                    await api(API_REPORTE, { method: 'PATCH', formData: datos });
+                } else {
+                    await api(API_REPORTES, { method: 'POST', formData: datos });
+                }
+
+                sessionStorage.setItem(
+                    'petsAlertMessage',
+                    isEditing ? '✅ Reporte actualizado' : '✅ Reporte publicado con éxito'
+                );
+
+                window.location.href = "{% url 'feed_screen' %}";
+            } catch (error) {
+                console.error(error);
+                mostrarErroresDeApi(error);
+                bloquearFormulario(false);
+            }
+        }
+
+        lostButton.addEventListener('click', () => {
+            tipoReporte = 'PERDIDO';
+            actualizarTipoReporte();
+        });
+
+        foundButton.addEventListener('click', () => {
+            tipoReporte = 'ENCONTRADO';
+            actualizarTipoReporte();
+        });
+
+        imagePicker.addEventListener('click', () => {
+            imageInput.click();
+        });
+
+        imageInput.addEventListener('change', procesarImagen);
+
+        backButton.addEventListener('click', () => {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.href = "{% url 'feed_screen' %}";
+            }
+        });
+
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            enviarReporte();
+        });
+
+        actualizarTipoReporte();
+        actualizarInterfazEdicion();
 
         if (isEditing) {
-            await cargarReporteExistente();
+            cargarReporteExistente();
         }
-    }
-
-    inicializar();
+    })();
 </script>
 {% endblock %}

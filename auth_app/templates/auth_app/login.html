@@ -31,7 +31,10 @@
             Inicia sesión para continuar
         </p>
 
-        <form id="login-form" novalidate>
+        <form id="login-form" method="post" action="{% url 'login' %}" novalidate>
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next }}">
+
             <div class="login-field">
                 <label for="email">Correo electrónico</label>
 
@@ -40,6 +43,8 @@
                     <input
                         type="email"
                         id="email"
+                        name="email"
+                        value="{{ email }}"
                         autocomplete="email"
                     >
                 </div>
@@ -53,12 +58,19 @@
                     <input
                         type="password"
                         id="password"
+                        name="password"
                         autocomplete="current-password"
                     >
                 </div>
             </div>
 
-            <div id="login-error" class="login-error"></div>
+            <div id="login-error" class="login-error">{% for error in errores %}{{ error }}{% if not forloop.last %}<br>{% endif %}{% endfor %}</div>
+
+            {% if mostrar_reenvio %}
+            <a href="{% url 'resend_verification' %}?email={{ email|urlencode }}" class="login-link">
+                Reenviar correo de verificación
+            </a>
+            {% endif %}
 
             <button
                 type="submit"
@@ -81,99 +93,22 @@
 {% endblock %}
 
 {% block scripts %}
-<script type="module">
-    import {
-        signInWithEmailAndPassword,
-        signOut
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+<script>
+    (function () {
+        const form = document.getElementById('login-form');
+        const button = document.getElementById('login-button');
 
-    const auth = window.firebaseAuth;
+        form.addEventListener('submit', () => {
+            button.disabled = true;
+            button.innerHTML = '<span class="login-spinner"></span>';
+        });
 
-    const form = document.getElementById('login-form');
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
-    const loginButton = document.getElementById('login-button');
-    const loginError = document.getElementById('login-error');
-
-    function obtenerMensajeError(code) {
-        switch (code) {
-            case 'auth/email-already-in-use':
-                return 'Este correo ya está registrado.';
-
-            case 'auth/invalid-email':
-                return 'El correo no es válido.';
-
-            case 'auth/user-not-found':
-                return 'No existe una cuenta con este correo.';
-
-            case 'auth/wrong-password':
-            case 'auth/invalid-credential':
-                return 'Contraseña incorrecta.';
-
-            case 'auth/too-many-requests':
-                return 'Demasiados intentos fallidos. Intenta más tarde.';
-
-            case 'auth/user-disabled':
-                return 'Esta cuenta ha sido deshabilitada.';
-
-            default:
-                return 'Ocurrió un error. Intenta de nuevo.';
-        }
-    }
-
-    function mostrarError(mensaje) {
-        loginError.textContent = mensaje;
-    }
-
-    function limpiarError() {
-        loginError.textContent = '';
-    }
-
-    function cambiarEstadoCarga(cargando) {
-        loginButton.disabled = cargando;
-
-        if (cargando) {
-            loginButton.innerHTML = `
-                <span class="login-spinner"></span>
-            `;
-        } else {
-            loginButton.textContent = 'Iniciar sesión';
-        }
-    }
-
-    form.addEventListener('submit', async event => {
-        event.preventDefault();
-
-        limpiarError();
-
-        const email = emailInput.value.trim();
-        const password = passwordInput.value.trim();
-
-        cambiarEstadoCarga(true);
-
-        try {
-            const result = await signInWithEmailAndPassword(
-                auth,
-                email,
-                password
-            );
-
-            if (!result.user.emailVerified) {
-                await signOut(auth);
-
-                mostrarError(
-                    'Debes verificar tu correo antes de iniciar sesión.'
-                );
-
-                cambiarEstadoCarga(false);
-                return;
+        window.addEventListener('pageshow', event => {
+            if (event.persisted) {
+                button.disabled = false;
+                button.textContent = 'Iniciar sesión';
             }
-
-            window.location.href = "{% url 'feed_screen' %}";
-        } catch (error) {
-            mostrarError(obtenerMensajeError(error.code));
-            cambiarEstadoCarga(false);
-        }
-    });
+        });
+    })();
 </script>
 {% endblock %}

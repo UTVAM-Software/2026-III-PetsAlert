@@ -1,0 +1,120 @@
+{% load static %}<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Panel{% endblock %} - Pets Alert</title>
+    <link rel="stylesheet" href="{% static 'css/panel.css' %}">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined">
+</head>
+<body class="panel">
+    <header class="panel-appbar">
+        <button type="button" class="panel-menu-boton" id="panel-menu-boton" aria-label="Abrir menú" aria-controls="panel-lateral" aria-expanded="false">
+            <span class="material-symbols-outlined">menu</span>
+        </button>
+        <a class="panel-marca" href="{% url 'panel:index' %}">
+            <span class="material-symbols-outlined">pets</span>
+            Pets Alert · Panel
+        </a>
+    </header>
+
+    <div class="panel-fondo" id="panel-fondo"></div>
+
+    <div class="panel-layout">
+        <aside class="panel-lateral" id="panel-lateral">
+            <nav class="panel-nav" aria-label="Navegación del panel">
+                <a href="{% url 'panel:index' %}" class="panel-enlace{% if request.resolver_match.url_name == 'index' %} activo{% endif %}">
+                    <span class="material-symbols-outlined">dashboard</span>Inicio
+                </a>
+                {% if perms.auth_app.view_usuario %}
+                <a href="{% url 'panel:usuario_list' %}" class="panel-enlace{% if 'usuario' in request.resolver_match.url_name %} activo{% endif %}">
+                    <span class="material-symbols-outlined">group</span>Usuarios
+                </a>
+                {% endif %}
+                {% if perms.auth.view_group %}
+                <a href="{% url 'panel:grupo_list' %}" class="panel-enlace{% if 'grupo' in request.resolver_match.url_name %} activo{% endif %}">
+                    <span class="material-symbols-outlined">groups</span>Grupos
+                </a>
+                {% endif %}
+                {% if perms.auth.view_permission %}
+                <a href="{% url 'panel:permiso_list' %}" class="panel-enlace{% if 'permiso' in request.resolver_match.url_name %} activo{% endif %}">
+                    <span class="material-symbols-outlined">key</span>Permisos
+                </a>
+                {% endif %}
+                {% if perms.feed.view_petreport %}
+                <a href="{% url 'panel:reporte_list' %}" class="panel-enlace{% if 'reporte' in request.resolver_match.url_name %} activo{% endif %}">
+                    <span class="material-symbols-outlined">pets</span>Reportes
+                </a>
+                {% endif %}
+                {% if perms.chat.view_chat %}
+                <a href="{% url 'panel:chat_list' %}" class="panel-enlace{% if 'chat' in request.resolver_match.url_name %} activo{% endif %}">
+                    <span class="material-symbols-outlined">chat</span>Chats
+                </a>
+                {% endif %}
+                {% if perms.chat.view_chatmessage %}
+                <a href="{% url 'panel:mensaje_list' %}" class="panel-enlace{% if 'mensaje' in request.resolver_match.url_name %} activo{% endif %}">
+                    <span class="material-symbols-outlined">forum</span>Mensajes
+                </a>
+                {% endif %}
+            </nav>
+
+            <div class="panel-pie">
+                <span class="panel-usuario">
+                    <span class="material-symbols-outlined">account_circle</span>{{ user.nombre }}
+                </span>
+                <a href="{% url 'feed_screen' %}" class="panel-enlace">
+                    <span class="material-symbols-outlined">arrow_back</span>Volver a la app
+                </a>
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="panel-enlace">
+                        <span class="material-symbols-outlined">logout</span>Cerrar sesión
+                    </button>
+                </form>
+            </div>
+        </aside>
+
+        <main class="panel-contenido">
+            {% if messages %}
+            <ul class="panel-mensajes">
+                {% for message in messages %}<li class="{{ message.level_tag }}">{{ message }}</li>{% endfor %}
+            </ul>
+            {% endif %}
+            {% block contenido %}{% endblock %}
+        </main>
+    </div>
+
+    <script>
+        (function () {
+            const boton = document.getElementById('panel-menu-boton');
+            const lateral = document.getElementById('panel-lateral');
+            const fondo = document.getElementById('panel-fondo');
+
+            function alternar(abrir) {
+                lateral.classList.toggle('abierto', abrir);
+                fondo.classList.toggle('visible', abrir);
+                boton.setAttribute('aria-expanded', String(abrir));
+                boton.setAttribute('aria-label', abrir ? 'Cerrar menú' : 'Abrir menú');
+                boton.querySelector('span').textContent = abrir ? 'close' : 'menu';
+            }
+
+            boton.addEventListener('click', function () {
+                alternar(!lateral.classList.contains('abierto'));
+            });
+            fondo.addEventListener('click', function () {
+                alternar(false);
+            });
+            document.addEventListener('keydown', function (evento) {
+                if (evento.key === 'Escape') {
+                    alternar(false);
+                }
+            });
+            lateral.querySelectorAll('a').forEach(function (enlace) {
+                enlace.addEventListener('click', function () {
+                    alternar(false);
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

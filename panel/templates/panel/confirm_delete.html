@@ -1,0 +1,20 @@
+{% extends 'panel/base_panel.html' %}
+
+{% block title %}Eliminar {{ titulo|lower }}{% endblock %}
+
+{% block contenido %}
+<h1>Eliminar {{ titulo|lower }}</h1>
+<p>{{ object }}</p>
+
+{% if bloqueo %}
+<div class="errores">{{ bloqueo }}</div>
+<a class="boton secundario" href="{{ url_lista }}">Volver</a>
+{% else %}
+<p>Esta acción no se puede deshacer y también elimina los datos relacionados.</p>
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" class="boton peligro">Sí, eliminar</button>
+    <a class="boton secundario" href="{{ url_lista }}">Cancelar</a>
+</form>
+{% endif %}
+{% endblock %}

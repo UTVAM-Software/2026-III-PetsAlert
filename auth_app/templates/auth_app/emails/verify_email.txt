@@ -1,0 +1,10 @@
+{% autoescape off %}Hola {{ usuario.nombre }},
+
+Gracias por registrarte en Pets Alert. Para activar tu cuenta, abre este enlace:
+
+{{ url }}
+
+El enlace caduca en 3 días. Si tú no creaste esta cuenta, ignora este correo.
+
+Equipo Pets Alert
+{% endautoescape %}

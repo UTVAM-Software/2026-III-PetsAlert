@@ -1,0 +1,58 @@
+
+import django.db.models.deletion
+from django.conf import settings
+from django.db import migrations, models
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('chat', '0002_remove_message_image_url_message_image'),
+        ('feed', '0003_petreport_breed_petreport_color_and_more'),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name='Chat',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('updated_at', models.DateTimeField(auto_now=True)),
+                ('interested', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='chats_como_interesado', to=settings.AUTH_USER_MODEL)),
+                ('owner', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='chats_como_dueno', to=settings.AUTH_USER_MODEL)),
+                ('report', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='chats', to='feed.petreport')),
+            ],
+            options={
+                'ordering': ['-updated_at'],
+            },
+        ),
+        migrations.CreateModel(
+            name='ChatMessage',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('content', models.TextField(help_text='Texto del mensaje')),
+                ('is_read', models.BooleanField(default=False)),
+                ('created_at', models.DateTimeField(auto_now_add=True)),
+                ('chat', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='messages', to='chat.chat')),
+                ('sender', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='chat_messages', to=settings.AUTH_USER_MODEL)),
+            ],
+            options={
+                'ordering': ['created_at', 'id'],
+            },
+        ),
+        migrations.DeleteModel(
+            name='Message',
+        ),
+        migrations.AddConstraint(
+            model_name='chat',
+            constraint=models.UniqueConstraint(fields=('report', 'interested'), name='chat_unico_por_reporte_e_interesado'),
+        ),
+        migrations.AddConstraint(
+            model_name='chat',
+            constraint=models.CheckConstraint(condition=models.Q(('owner_id', models.F('interested_id')), _negated=True), name='chat_dueno_distinto_de_interesado'),
+        ),
+        migrations.AddIndex(
+            model_name='chatmessage',
+            index=models.Index(fields=['chat', 'id'], name='chat_chatme_chat_id_2988ce_idx'),
+        ),
+    ]
